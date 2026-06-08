@@ -4,11 +4,29 @@
   <meta charset="UTF-8" />
   <title>P2P Canvas</title>
   <style>
-    html, body { margin: 0; height: 100%; background: #111; overflow: hidden; }
+    html, body { margin: 0; height: 100%; background: #111; overflow: hidden; font-family: system-ui, sans-serif; }
     #app-canvas { display: block; width: 100vw; height: 100vh; }
+    #signaling-panel {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+      background: #1a1a1a; color: #eee; padding: 10px; font-size: 12px;
+      display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    }
+    #signaling-panel textarea { width: 260px; height: 40px; font-size: 10px; }
+    #signaling-panel button { cursor: pointer; }
+    #conn-status { font-weight: bold; }
   </style>
 </head>
 <body>
+  <div id="signaling-panel">
+    <button id="btn-create-offer">1. Create Offer</button>
+    <textarea id="offer-out" placeholder="Offer appears here / paste offer to join" readonly></textarea>
+    <textarea id="offer-in" placeholder="Paste peer's offer here (to join)"></textarea>
+    <button id="btn-join">2. Join with Offer</button>
+    <textarea id="answer-out" placeholder="Answer appears here" readonly></textarea>
+    <textarea id="answer-in" placeholder="Paste peer's answer here"></textarea>
+    <button id="btn-complete">3. Complete Connection</button>
+    <span id="conn-status">disconnected</span>
+  </div>
   <canvas id="app-canvas"></canvas>
   <script type="module" src="/dist/main.js"></script>
 </body>

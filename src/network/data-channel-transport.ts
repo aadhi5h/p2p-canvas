@@ -1,4 +1,4 @@
-import type { PeerConnection } from "./peer-connection";
+import type { PeerConnection } from "./peer-connection.js";
 
 export type MessageListener = (data: string) => void;
 

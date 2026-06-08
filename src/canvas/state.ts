@@ -1,4 +1,4 @@
-import type { Shape, ShapeId } from "./types";
+import type { Shape, ShapeId } from "./types.js";
 
 export type CanvasListener = () => void;
 
