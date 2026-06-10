@@ -3,13 +3,36 @@ import { startPlaceholderRenderer } from "./render/placeholder-renderer.js";
 import { PeerConnection } from "./network/peer-connection.js";
 import { DataChannelTransport } from "./network/data-channel-transport.js";
 import { waitForIceGatheringComplete, encodeSignal, decodeSignal } from "./network/manual-signaling.js";
+import { CrdtDocument } from "./crdt/document.js";
+import { SyncedCanvas } from "./crdt/synced-canvas.js";
 
 const canvasEl = document.getElementById("app-canvas") as HTMLCanvasElement;
 const state = new CanvasState();
 startPlaceholderRenderer(canvasEl, state);
 
-state.addShape({ id: "r1", type: "rect", x: 100, y: 100, width: 120, height: 80, color: "#4f8ef7" });
-state.addShape({ id: "r2", type: "rect", x: 260, y: 180, width: 80, height: 80, color: "#f77c4f" });
+const peerId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+const document_ = new CrdtDocument(peerId);
+const synced = new SyncedCanvas(document_, state);
+
+// Seed a couple of shapes through the synced path (not raw state)
+// so they're proper CRDT entries that will replicate correctly.
+synced.addShape({ id: "r1", type: "rect", x: 100, y: 100, width: 120, height: 80, color: "#4f8ef7" });
+synced.addShape({ id: "r2", type: "rect", x: 260, y: 180, width: 80, height: 80, color: "#f77c4f" });
+
+// Click-to-create: the actual way to test cross-tab sync (Day 9).
+canvasEl.addEventListener("click", (event) => {
+  const id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+  const colors = ["#4f8ef7", "#f77c4f", "#4ff78e", "#f74f8e", "#f7e14f"];
+  synced.addShape({
+    id,
+    type: "rect",
+    x: event.clientX - 25,
+    y: event.clientY - 25,
+    width: 50,
+    height: 50,
+    color: colors[Math.floor(Math.random() * colors.length)],
+  });
+});
 
 const statusEl = document.getElementById("conn-status")!;
 const offerOut = document.getElementById("offer-out") as HTMLTextAreaElement;
@@ -28,13 +51,11 @@ function setStatus(text: string) {
 
 function wireTransport(t: DataChannelTransport) {
   transport = t;
-  t.onMessage((data) => console.log("[received]", data));
+  synced.attachTransport(t);
   peer.raw.onconnectionstatechange = () => setStatus(peer.connectionState);
-  setStatus(peer.connectionState); // report current state immediately, in case we attached too late to catch it
+  setStatus(peer.connectionState); // in case we attached after the state already changed
 }
 
-// Wraps a click handler so errors are ALWAYS visible in console,
-// instead of silently dying inside an unhandled promise rejection.
 function safeHandler(fn: () => Promise<void>) {
   return () => {
     fn().catch((err) => {
@@ -75,4 +96,4 @@ document.getElementById("btn-complete")!.addEventListener("click", safeHandler(a
   setStatus("connecting...");
 }));
 
-(window as any).debug = { get transport() { return transport; }, peer, state };
+(window as any).debug = { get transport() { return transport; }, peer, state, document: document_, synced };

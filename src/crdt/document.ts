@@ -1,5 +1,5 @@
 import type { Shape, ShapeId } from "../canvas/types";
-import { type CrdtOp, type LamportTimestamp, isNewer } from "./types";
+import { type CrdtOp, type LamportTimestamp, isNewer } from "./types.js";
 
 interface Entry {
   value: Shape | null; // null means "deleted, but we remember it happened"
