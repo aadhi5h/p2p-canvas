@@ -3,7 +3,7 @@ import { startPlaceholderRenderer } from "./render/placeholder-renderer.js";
 import { PeerConnection } from "./network/peer-connection.js";
 import { DataChannelTransport } from "./network/data-channel-transport.js";
 import { waitForIceGatheringComplete, encodeSignal, decodeSignal } from "./network/manual-signaling.js";
-import { CrdtDocument } from "./crdt/document.js";
+import { CrdtProvider } from "./crdt/provider.js";
 import { SyncedCanvas } from "./crdt/synced-canvas.js";
 
 const canvasEl = document.getElementById("app-canvas") as HTMLCanvasElement;
@@ -11,8 +11,8 @@ const state = new CanvasState();
 startPlaceholderRenderer(canvasEl, state);
 
 const peerId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
-const document_ = new CrdtDocument(peerId);
-const synced = new SyncedCanvas(document_, state);
+const provider = new CrdtProvider(peerId);
+const synced = new SyncedCanvas(provider, state);
 
 // Seed a couple of shapes through the synced path (not raw state)
 // so they're proper CRDT entries that will replicate correctly.
@@ -96,4 +96,4 @@ document.getElementById("btn-complete")!.addEventListener("click", safeHandler(a
   setStatus("connecting...");
 }));
 
-(window as any).debug = { get transport() { return transport; }, peer, state, document: document_, synced };
+(window as any).debug = { get transport() { return transport; }, peer, state, provider, synced };

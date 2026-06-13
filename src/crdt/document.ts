@@ -62,6 +62,25 @@ export class CrdtDocument {
   }
 
   /** Local clock tick: always advances past anything we've seen. */
+
+  /**
+   * Exports every known entry (including tombstoned deletes) as raw
+   * ops. Used to catch a newly-joined peer up on everything this
+   * peer already knows, since they missed all prior broadcasts.
+   */
+  exportSnapshot(): CrdtOp[] {
+    const ops: CrdtOp[] = [];
+    for (const [shapeId, entry] of this.entries) {
+      ops.push({
+        type: entry.value === null ? "delete" : "set",
+        shapeId,
+        value: entry.value,
+        timestamp: entry.timestamp,
+      });
+    }
+    return ops;
+  }
+
   private tick(): LamportTimestamp {
     this.clock += 1;
     return { counter: this.clock, peerId: this.peerId };
@@ -71,4 +90,8 @@ export class CrdtDocument {
   private observe(remote: LamportTimestamp): void {
     this.clock = Math.max(this.clock, remote.counter);
   }
+}
+
+export interface CrdtSnapshotExport {
+  entries: Array<{ shapeId: string; value: Shape | null; timestamp: { counter: number; peerId: string } }>;
 }
