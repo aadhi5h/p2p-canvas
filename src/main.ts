@@ -51,6 +51,12 @@ manager.onTransportReady((_peerId, transport) => {
   synced.attachTransport(transport);
 });
 
+manager.onDisconnect((peerId, transport) => {
+  if (transport) provider.detachTransport(transport);
+  peerStatuses.delete(peerId);
+  renderPeerList();
+});
+
 function safeHandler(fn: () => Promise<void>) {
   return () => fn().catch((err) => console.error("[handler error]", err));
 }

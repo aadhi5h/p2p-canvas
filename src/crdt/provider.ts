@@ -37,6 +37,11 @@ export class CrdtProvider {
     this.send(transport, { kind: "snapshot", ops: snapshot });
   }
 
+
+  detachTransport(transport: DataChannelTransport): void {
+    this.transports.delete(transport);
+  }
+
   onShapeChange(listener: ShapeChangeListener): void {
     this.listeners.add(listener);
   }

@@ -10,6 +10,7 @@ export interface ManagedPeer {
 
 export type PeerStatusListener = (peerId: string, state: RTCPeerConnectionState) => void;
 export type PeerTransportListener = (peerId: string, transport: DataChannelTransport) => void;
+export type PeerDisconnectListener = (peerId: string, transport: DataChannelTransport | undefined) => void;
 
 /**
  * Owns a growing set of independent peer connections, so the app
@@ -21,6 +22,7 @@ export type PeerTransportListener = (peerId: string, transport: DataChannelTrans
 export class PeerManager {
   private peers = new Map<string, ManagedPeer>();
   private statusListeners = new Set<PeerStatusListener>();
+  private disconnectListeners = new Set<PeerDisconnectListener>();
   private transportListeners = new Set<PeerTransportListener>();
 
   onStatusChange(listener: PeerStatusListener): void {
@@ -29,6 +31,10 @@ export class PeerManager {
 
   onTransportReady(listener: PeerTransportListener): void {
     this.transportListeners.add(listener);
+  }
+
+  onDisconnect(listener: PeerDisconnectListener): void {
+    this.disconnectListeners.add(listener);
   }
 
   getTransports(): DataChannelTransport[] {
@@ -45,7 +51,13 @@ export class PeerManager {
     this.peers.set(peerId, managed);
 
     connection.raw.onconnectionstatechange = () => {
-      for (const l of this.statusListeners) l(peerId, connection.connectionState);
+      const currentState = connection.connectionState;
+      for (const l of this.statusListeners) l(peerId, currentState);
+      if (currentState === "failed" || currentState === "closed") {
+        const wasManaged = this.peers.get(peerId);
+        this.peers.delete(peerId);
+        for (const l of this.disconnectListeners) l(peerId, wasManaged?.transport);
+      }
     };
 
     const transport = DataChannelTransport.createInitiator(connection);
@@ -65,7 +77,13 @@ export class PeerManager {
     this.peers.set(peerId, managed);
 
     connection.raw.onconnectionstatechange = () => {
-      for (const l of this.statusListeners) l(peerId, connection.connectionState);
+      const currentState = connection.connectionState;
+      for (const l of this.statusListeners) l(peerId, currentState);
+      if (currentState === "failed" || currentState === "closed") {
+        const wasManaged = this.peers.get(peerId);
+        this.peers.delete(peerId);
+        for (const l of this.disconnectListeners) l(peerId, wasManaged?.transport);
+      }
     };
 
     connection.raw.ondatachannel = (event) => {
