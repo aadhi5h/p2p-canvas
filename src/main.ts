@@ -83,4 +83,8 @@ document.getElementById("btn-complete")!.addEventListener("click", safeHandler(a
   actionStatus.textContent = "";
 }));
 
-(window as any).debug = { manager, state, provider, synced };
+(window as any).debug = {
+  manager, state, provider, synced,
+  shapeCount: () => provider.getAllShapes().length,
+  shapeIds: () => provider.getAllShapes().map((s) => s.id).sort(),
+};
