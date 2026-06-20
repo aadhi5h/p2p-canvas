@@ -15,6 +15,10 @@ interface Entry {
  * peers), and CanvasState becomes a pure "view" of whatever this
  * document currently resolves to.
  */
+// KNOWN LIMITATION (tracked for Day 37): this is WHOLE-VALUE
+// last-writer-wins. Concurrent edits to *different fields* of the
+// same shape do not merge — one edit fully overwrites the other.
+// See concurrent-field-edit.test.ts for a demonstration.
 export class CrdtDocument {
   private entries = new Map<ShapeId, Entry>();
   private clock = 0;
