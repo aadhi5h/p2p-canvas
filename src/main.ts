@@ -3,6 +3,7 @@ import { startPlaceholderRenderer } from "./render/placeholder-renderer.js";
 import { PeerManager } from "./network/peer-manager.js";
 import { CrdtProvider } from "./crdt/provider.js";
 import { SyncedCanvas } from "./crdt/synced-canvas.js";
+import { PresenceTracker } from "./network/presence.js";
 
 const canvasEl = document.getElementById("app-canvas") as HTMLCanvasElement;
 const state = new CanvasState();
@@ -11,6 +12,7 @@ startPlaceholderRenderer(canvasEl, state);
 const peerId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
 const provider = new CrdtProvider(peerId);
 const synced = new SyncedCanvas(provider, state);
+const presence = new PresenceTracker(peerId);
 
 synced.addShape({ id: "r1", type: "rect", x: 100, y: 100, width: 120, height: 80, color: "#4f8ef7" });
 synced.addShape({ id: "r2", type: "rect", x: 260, y: 180, width: 80, height: 80, color: "#f77c4f" });
@@ -49,10 +51,12 @@ manager.onStatusChange((peerId, status) => {
 
 manager.onTransportReady((_peerId, transport) => {
   synced.attachTransport(transport);
+  presence.attachTransport(transport);
 });
 
 manager.onDisconnect((peerId, transport) => {
   if (transport) provider.detachTransport(transport);
+  if (transport) presence.detachTransport(transport);
   peerStatuses.delete(peerId);
   renderPeerList();
 });
@@ -87,4 +91,6 @@ document.getElementById("btn-complete")!.addEventListener("click", safeHandler(a
   manager, state, provider, synced,
   shapeCount: () => provider.getAllShapes().length,
   shapeIds: () => provider.getAllShapes().map((s) => s.id).sort(),
+  presence,
+  onlinePeers: () => presence.getOnlinePeers(),
 };
