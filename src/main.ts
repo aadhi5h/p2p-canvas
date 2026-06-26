@@ -4,6 +4,7 @@ import { PeerManager } from "./network/peer-manager.js";
 import { CrdtProvider } from "./crdt/provider.js";
 import { SyncedCanvas } from "./crdt/synced-canvas.js";
 import { PresenceTracker } from "./network/presence.js";
+import { startCursorOverlay } from "./render/cursor-overlay.js";
 
 const canvasEl = document.getElementById("app-canvas") as HTMLCanvasElement;
 const state = new CanvasState();
@@ -13,6 +14,11 @@ const peerId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(
 const provider = new CrdtProvider(peerId);
 const synced = new SyncedCanvas(provider, state);
 const presence = new PresenceTracker(peerId);
+startCursorOverlay(presence);
+
+window.addEventListener("mousemove", (event) => {
+  presence.broadcastCursor(event.clientX, event.clientY);
+});
 
 synced.addShape({ id: "r1", type: "rect", x: 100, y: 100, width: 120, height: 80, color: "#4f8ef7" });
 synced.addShape({ id: "r2", type: "rect", x: 260, y: 180, width: 80, height: 80, color: "#f77c4f" });

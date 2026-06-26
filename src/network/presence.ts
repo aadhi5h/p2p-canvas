@@ -3,29 +3,20 @@ import type { DataChannelTransport } from "./data-channel-transport.js";
 export interface PresenceState {
   peerId: string;
   online: boolean;
+  cursorX?: number;
+  cursorY?: number;
 }
 
 type PresenceMessage = { kind: "presence"; state: PresenceState };
 
 export type PresenceListener = (state: PresenceState) => void;
 
-/**
- * Tracks "who's currently here" — deliberately NOT part of CrdtProvider.
- * No timestamps, no conflict resolution, no snapshot replay.
- *
- * IMPORTANT: the "peerId" a remote peer announces (their own self-
- * identity, e.g. used for CrdtDocument) is a DIFFERENT namespace than
- * PeerManager's per-connection id (a random id generated fresh for
- * each handshake, local bookkeeping only). This class must not
- * assume the caller knows which remote identity belongs to which
- * transport — it learns that itself from the first presence message
- * received on that transport, and uses ITS OWN mapping for cleanup.
- */
 export class PresenceTracker {
   private peers = new Map<string, PresenceState>();
   private transportToPeerId = new Map<DataChannelTransport, string>();
   private listeners = new Set<PresenceListener>();
   private transports = new Set<DataChannelTransport>();
+  private lastCursorSend = 0;
 
   constructor(private readonly localPeerId: string) {}
 
@@ -35,12 +26,11 @@ export class PresenceTracker {
     this.send(transport, { peerId: this.localPeerId, online: true });
   }
 
-  /** No id parameter needed — we already know which identity this transport belongs to. */
   detachTransport(transport: DataChannelTransport): void {
     this.transports.delete(transport);
     const remotePeerId = this.transportToPeerId.get(transport);
     this.transportToPeerId.delete(transport);
-    if (remotePeerId === undefined) return; // never received a presence message from them — nothing to clean up
+    if (remotePeerId === undefined) return;
     this.peers.delete(remotePeerId);
     for (const l of this.listeners) l({ peerId: remotePeerId, online: false });
   }
@@ -53,6 +43,21 @@ export class PresenceTracker {
     return Array.from(this.peers.values()).filter((p) => p.online);
   }
 
+  /**
+   * Broadcasts cursor position to every attached peer, throttled to
+   * ~20/sec. Cursor movement fires constantly (every mousemove), and
+   * without throttling we'd flood the data channel — presence data
+   * is inherently "latest wins" so dropping intermediate positions
+   * is completely fine, unlike CRDT ops where every op matters.
+   */
+  broadcastCursor(x: number, y: number): void {
+    const now = performance.now();
+    if (now - this.lastCursorSend < 50) return; // ~20Hz cap
+    this.lastCursorSend = now;
+    const state: PresenceState = { peerId: this.localPeerId, online: true, cursorX: x, cursorY: y };
+    for (const transport of this.transports) this.send(transport, state);
+  }
+
   private handleMessage(transport: DataChannelTransport, raw: string): void {
     let message: PresenceMessage;
     try {
@@ -61,7 +66,7 @@ export class PresenceTracker {
       return;
     }
     if (message.kind !== "presence") return;
-    this.transportToPeerId.set(transport, message.state.peerId); // learn the mapping
+    this.transportToPeerId.set(transport, message.state.peerId);
     this.peers.set(message.state.peerId, message.state);
     for (const l of this.listeners) l(message.state);
   }
