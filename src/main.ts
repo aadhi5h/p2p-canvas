@@ -37,12 +37,32 @@ const manager = new PeerManager();
 const peerStatuses = new Map<string, RTCPeerConnectionState>();
 const peerListEl = document.getElementById("peer-list")!;
 const actionStatus = document.getElementById("action-status")!;
+const offlineIndicator = document.getElementById("offline-indicator")!;
+updateOfflineIndicator();
 const offerOut = document.getElementById("offer-out") as HTMLTextAreaElement;
 const offerIn = document.getElementById("offer-in") as HTMLTextAreaElement;
 const answerOut = document.getElementById("answer-out") as HTMLTextAreaElement;
 const answerIn = document.getElementById("answer-in") as HTMLTextAreaElement;
 
 let lastOfferedPeerId: string | undefined;
+
+
+function connectedPeerCount(): number {
+  return Array.from(peerStatuses.values()).filter((s) => s === "connected").length;
+}
+
+function updateOfflineIndicator(): void {
+  const count = connectedPeerCount();
+  if (count === 0) {
+    offlineIndicator.textContent = "OFFLINE — editing locally, will sync when connected";
+    offlineIndicator.style.background = "#5a2a2a";
+    offlineIndicator.style.color = "#f7a5a5";
+  } else {
+    offlineIndicator.textContent = `ONLINE — synced with ${count} peer${count === 1 ? "" : "s"}`;
+    offlineIndicator.style.background = "#2a5a2a";
+    offlineIndicator.style.color = "#a5f7a5";
+  }
+}
 
 function renderPeerList() {
   peerListEl.innerHTML = Array.from(peerStatuses.entries())
@@ -53,6 +73,7 @@ function renderPeerList() {
 manager.onStatusChange((peerId, status) => {
   peerStatuses.set(peerId, status);
   renderPeerList();
+  updateOfflineIndicator();
 });
 
 manager.onTransportReady((_peerId, transport) => {
@@ -65,6 +86,7 @@ manager.onDisconnect((peerId, transport) => {
   if (transport) presence.detachTransport(transport);
   peerStatuses.delete(peerId);
   renderPeerList();
+  updateOfflineIndicator();
 });
 
 function safeHandler(fn: () => Promise<void>) {
@@ -99,4 +121,5 @@ document.getElementById("btn-complete")!.addEventListener("click", safeHandler(a
   shapeIds: () => provider.getAllShapes().map((s) => s.id).sort(),
   presence,
   onlinePeers: () => presence.getOnlinePeers(),
+  isOffline: () => connectedPeerCount() === 0,
 };
