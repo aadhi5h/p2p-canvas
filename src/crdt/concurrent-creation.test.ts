@@ -14,8 +14,8 @@ console.log("Test 1: concurrent creation of DIFFERENT shapes — both must survi
   const peerA = new CrdtDocument("peerA");
   const peerB = new CrdtDocument("peerB");
 
-  const shapeFromA: Shape = { id: "shape-a", type: "rect", x: 0, y: 0, width: 10, height: 10, color: "red" };
-  const shapeFromB: Shape = { id: "shape-b", type: "rect", x: 50, y: 50, width: 10, height: 10, color: "blue" };
+  const shapeFromA: Shape = { id: "shape-a", type: "rect", x: 0, y: 0, width: 10, height: 10, color: "red" , rotation: 0, zIndex: 0};
+  const shapeFromB: Shape = { id: "shape-b", type: "rect", x: 50, y: 50, width: 10, height: 10, color: "blue" , rotation: 0, zIndex: 0};
 
   const opA = peerA.set("shape-a", shapeFromA);
   const opB = peerB.set("shape-b", shapeFromB);
@@ -38,7 +38,7 @@ console.log("\nTest 2: N peers each creating a unique shape simultaneously — n
   const peerCount = 5;
   const peers = Array.from({ length: peerCount }, (_, i) => new CrdtDocument(`peer-${i}`));
   const ops = peers.map((peer, i) =>
-    peer.set(`shape-${i}`, { id: `shape-${i}`, type: "rect", x: i * 10, y: 0, width: 10, height: 10, color: "green" })
+    peer.set(`shape-${i}`, { id: `shape-${i}`, type: "rect", x: i * 10, y: 0, width: 10, height: 10, color: "green" , rotation: 0, zIndex: 0})
   );
 
   // Every peer applies every OTHER peer's op, each in a different random-ish order
@@ -59,8 +59,8 @@ console.log("\nTest 3: edge case — two peers concurrently create a shape with 
   const peerB = new CrdtDocument("peerB");
 
   // Both peers independently "create" id "collision" without knowing about each other
-  const opA = peerA.set("collision", { id: "collision", type: "rect", x: 1, y: 1, width: 10, height: 10, color: "from-a" });
-  const opB = peerB.set("collision", { id: "collision", type: "rect", x: 2, y: 2, width: 10, height: 10, color: "from-b" });
+  const opA = peerA.set("collision", { id: "collision", type: "rect", x: 1, y: 1, width: 10, height: 10, color: "from-a" , rotation: 0, zIndex: 0});
+  const opB = peerB.set("collision", { id: "collision", type: "rect", x: 2, y: 2, width: 10, height: 10, color: "from-b" , rotation: 0, zIndex: 0});
 
   peerA.applyOp(opB);
   peerB.applyOp(opA);

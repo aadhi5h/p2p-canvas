@@ -20,17 +20,28 @@ window.addEventListener("mousemove", (event) => {
   presence.broadcastCursor(event.clientX, event.clientY);
 });
 
-synced.addShape({ id: "r1", type: "rect", x: 100, y: 100, width: 120, height: 80, color: "#4f8ef7" });
-synced.addShape({ id: "r2", type: "rect", x: 260, y: 180, width: 80, height: 80, color: "#f77c4f" });
+synced.addShape({ id: "r1", type: "rect", x: 100, y: 100, width: 120, height: 80, color: "#4f8ef7" , rotation: 0, zIndex: 0});
+synced.addShape({ id: "r2", type: "rect", x: 260, y: 180, width: 80, height: 80, color: "#f77c4f" , rotation: 0, zIndex: 0});
 
 canvasEl.addEventListener("click", (event) => {
   const id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
   const colors = ["#4f8ef7", "#f77c4f", "#4ff78e", "#f74f8e", "#f7e14f"];
-  synced.addShape({
-    id, type: "rect",
-    x: event.clientX - 25, y: event.clientY - 25, width: 50, height: 50,
-    color: colors[Math.floor(Math.random() * colors.length)],
-  });
+  const color = colors[Math.floor(Math.random() * colors.length)];
+  const zIndex = state.getAllShapes().length; // new shapes stack on top
+
+  if (Math.random() < 0.5) {
+    synced.addShape({
+      id, type: "rect",
+      x: event.clientX - 25, y: event.clientY - 25, width: 50, height: 50,
+      color, rotation: Math.random() * 45, zIndex,
+    });
+  } else {
+    synced.addShape({
+      id, type: "circle",
+      x: event.clientX, y: event.clientY, radius: 25,
+      color, rotation: 0, zIndex,
+    });
+  }
 });
 
 const manager = new PeerManager();

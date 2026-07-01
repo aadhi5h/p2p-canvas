@@ -15,7 +15,7 @@ console.log("(documents current whole-value LWW behavior — see Day 37 for a re
   const peerA = new CrdtDocument("peerA");
   const peerB = new CrdtDocument("peerB");
 
-  const original: Shape = { id: "r1", type: "rect", x: 0, y: 0, width: 50, height: 50, color: "red" };
+  const original: Shape = { id: "r1", type: "rect", x: 0, y: 0, width: 50, height: 50, color: "red" , rotation: 0, zIndex: 0};
   peerA.set("r1", original);
   peerB.applyOp({ type: "set", shapeId: "r1", value: original, timestamp: { counter: 1, peerId: "peerA" } });
 

@@ -39,7 +39,7 @@ function makeLinkedPair(): [DataChannelTransport, DataChannelTransport] {
 }
 
 function rect(id: string, color: string): Shape {
-  return { id, type: "rect", x: 0, y: 0, width: 10, height: 10, color };
+  return { id, type: "rect", x: 0, y: 0, width: 10, height: 10, color , rotation: 0, zIndex: 0};
 }
 
 console.log("Test 1: two peers each edit fully OFFLINE, then connect for the first time");

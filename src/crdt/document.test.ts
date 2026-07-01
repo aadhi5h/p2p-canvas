@@ -23,7 +23,7 @@ console.log("Test 1: concurrent set on same shape converges");
 {
   const peerA = new CrdtDocument("peerA");
   const peerB = new CrdtDocument("peerB");
-  const rect = (color: string): Shape => ({ id: "r1", type: "rect", x: 0, y: 0, width: 10, height: 10, color });
+  const rect = (color: string): Shape => ({ id: "r1", type: "rect", x: 0, y: 0, width: 10, height: 10, color , rotation: 0, zIndex: 0});
 
   const opA = peerA.set("r1", rect("red"));
   const opB = peerB.set("r1", rect("blue"));
@@ -38,19 +38,19 @@ console.log("Test 1: concurrent set on same shape converges");
 console.log("Test 2: higher counter always wins, regardless of arrival order");
 {
   const peer = new CrdtDocument("peerX");
-  peer.set("r1", { id: "r1", type: "rect", x: 0, y: 0, width: 10, height: 10, color: "red" });
+  peer.set("r1", { id: "r1", type: "rect", x: 0, y: 0, width: 10, height: 10, color: "red" , rotation: 0, zIndex: 0});
 
   // Manually construct a "later" op as if it came from elsewhere with a higher counter
   const laterOp = {
     type: "set" as const,
     shapeId: "r1",
-    value: { id: "r1", type: "rect" as const, x: 0, y: 0, width: 10, height: 10, color: "green" },
+    value: { id: "r1", type: "rect" as const, x: 0, y: 0, width: 10, height: 10, color: "green" , rotation: 0, zIndex: 0},
     timestamp: { counter: 999, peerId: "peerY" },
   };
   const earlierOp = {
     type: "set" as const,
     shapeId: "r1",
-    value: { id: "r1", type: "rect" as const, x: 0, y: 0, width: 10, height: 10, color: "purple" },
+    value: { id: "r1", type: "rect" as const, x: 0, y: 0, width: 10, height: 10, color: "purple" , rotation: 0, zIndex: 0},
     timestamp: { counter: 1, peerId: "peerY" },
   };
 
@@ -65,13 +65,13 @@ console.log("Test 3: delete wins over a stale concurrent set");
 {
   const peerA = new CrdtDocument("peerA");
   const peerB = new CrdtDocument("peerB");
-  peerA.set("r1", { id: "r1", type: "rect", x: 0, y: 0, width: 10, height: 10, color: "red" });
+  peerA.set("r1", { id: "r1", type: "rect", x: 0, y: 0, width: 10, height: 10, color: "red" , rotation: 0, zIndex: 0});
 
   const deleteOp = peerA.delete("r1");
   const staleSetOp = { // simulate a peer that hadn't seen the delete yet, with a lower counter
     type: "set" as const,
     shapeId: "r1",
-    value: { id: "r1", type: "rect" as const, x: 0, y: 0, width: 10, height: 10, color: "blue" },
+    value: { id: "r1", type: "rect" as const, x: 0, y: 0, width: 10, height: 10, color: "blue" , rotation: 0, zIndex: 0},
     timestamp: { counter: deleteOp.timestamp.counter - 1, peerId: "peerB" },
   };
 
@@ -90,13 +90,13 @@ console.log("Test 4: tie-break on equal counters is deterministic by peerId");
   const opFromA = {
     type: "set" as const,
     shapeId: "r1",
-    value: { id: "r1", type: "rect" as const, x: 0, y: 0, width: 10, height: 10, color: "from-a" },
+    value: { id: "r1", type: "rect" as const, x: 0, y: 0, width: 10, height: 10, color: "from-a" , rotation: 0, zIndex: 0},
     timestamp: { counter: 5, peerId: "aaa" },
   };
   const opFromZ = {
     type: "set" as const,
     shapeId: "r1",
-    value: { id: "r1", type: "rect" as const, x: 0, y: 0, width: 10, height: 10, color: "from-z" },
+    value: { id: "r1", type: "rect" as const, x: 0, y: 0, width: 10, height: 10, color: "from-z" , rotation: 0, zIndex: 0},
     timestamp: { counter: 5, peerId: "zzz" },
   };
 
