@@ -1,5 +1,6 @@
 import { CanvasState } from "./canvas/state.js";
 import { startPlaceholderRenderer } from "./render/placeholder-renderer.js";
+import { hitTest } from "./canvas/hit-test.js";
 import { PeerManager } from "./network/peer-manager.js";
 import { CrdtProvider } from "./crdt/provider.js";
 import { SyncedCanvas } from "./crdt/synced-canvas.js";
@@ -23,11 +24,46 @@ window.addEventListener("mousemove", (event) => {
 synced.addShape({ id: "r1", type: "rect", x: 100, y: 100, width: 120, height: 80, color: "#4f8ef7" , rotation: 0, zIndex: 0});
 synced.addShape({ id: "r2", type: "rect", x: 260, y: 180, width: 80, height: 80, color: "#f77c4f" , rotation: 0, zIndex: 0});
 
+let draggingId: string | undefined;
+let dragOffsetX = 0;
+let dragOffsetY = 0;
+let dragMoved = false;
+
+canvasEl.addEventListener("mousedown", (event) => {
+  const hit = hitTest(state.getAllShapes(), event.clientX, event.clientY);
+  if (hit) {
+    draggingId = hit.id;
+    dragOffsetX = event.clientX - hit.x;
+    dragOffsetY = event.clientY - hit.y;
+    dragMoved = false;
+  }
+});
+
+canvasEl.addEventListener("mousemove", (event) => {
+  if (!draggingId) return;
+  dragMoved = true;
+  synced.updateShape(draggingId, { x: event.clientX - dragOffsetX, y: event.clientY - dragOffsetY });
+});
+
+window.addEventListener("mouseup", () => {
+  draggingId = undefined;
+});
+
 canvasEl.addEventListener("click", (event) => {
+  // If that click was actually the END of a drag, don't also create a
+  // new shape — dragMoved distinguishes "clicked to create" from
+  // "released after dragging".
+  if (dragMoved) {
+    dragMoved = false;
+    return;
+  }
+  const hit = hitTest(state.getAllShapes(), event.clientX, event.clientY);
+  if (hit) return; // clicked an existing shape without dragging — do nothing, don't stack a new one on top
+
   const id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
   const colors = ["#4f8ef7", "#f77c4f", "#4ff78e", "#f74f8e", "#f7e14f"];
   const color = colors[Math.floor(Math.random() * colors.length)];
-  const zIndex = state.getAllShapes().length; // new shapes stack on top
+  const zIndex = state.getAllShapes().length;
 
   if (Math.random() < 0.5) {
     synced.addShape({
