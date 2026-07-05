@@ -170,3 +170,40 @@ document.getElementById("btn-complete")!.addEventListener("click", safeHandler(a
   onlinePeers: () => presence.getOnlinePeers(),
   isOffline: () => connectedPeerCount() === 0,
 };
+
+// Day 33 experiment: deliberately provoke the whole-value LWW gap
+// from Day 18. Click "Set color" in Tab 1 and "Move position" in
+// Tab 2 within about a second of each other — one edit will fully
+// overwrite the other rather than merging, which is the documented
+// (if unintuitive) current behavior. Day 37 addresses this properly.
+document.getElementById("btn-experiment-color")?.addEventListener("click", () => {
+  const colors = ["#ff0000", "#00ff00", "#0000ff", "#ffff00", "#ff00ff"];
+  synced.updateShape("r1", { color: colors[Math.floor(Math.random() * colors.length)] });
+  console.log("[experiment] set r1 color, shape now:", provider.getShape("r1"));
+});
+
+document.getElementById("btn-experiment-move")?.addEventListener("click", () => {
+  const x = Math.floor(Math.random() * 400);
+  const y = Math.floor(Math.random() * 400);
+  synced.updateShape("r1", { x, y });
+  console.log("[experiment] moved r1, shape now:", provider.getShape("r1"));
+});
+
+
+// TRUE concurrent edit: built from a FIXED base shape, not whatever
+// is currently live — so clicking both in either order/timing still
+// produces a genuine collision, unlike the merge-with-current
+// buttons above which can accidentally sequence themselves.
+const collisionBase = { id: "r1", type: "rect" as const, x: 100, y: 100, width: 120, height: 80, color: "#4f8ef7", rotation: 0, zIndex: 0 };
+
+document.getElementById("btn-force-collision-color")?.addEventListener("click", () => {
+  synced.addShape({ ...collisionBase, color: "#ff0000" }); // addShape = raw set, no merge with current
+  console.log("[force-collision] sent COLOR-only edit built from fixed base");
+});
+
+document.getElementById("btn-force-collision-move")?.addEventListener("click", () => {
+  synced.addShape({ ...collisionBase, x: 999, y: 999 });
+  console.log("[force-collision] sent POSITION-only edit built from fixed base");
+});
+
+
