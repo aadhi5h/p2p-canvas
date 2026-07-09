@@ -66,6 +66,14 @@ export class CrdtProvider {
     return this.document.getAllShapes();
   }
 
+
+  /** Day 37: partial patch — only broadcasts/merges the changed fields, not the whole shape. */
+  localUpdate(id: ShapeId, patch: Partial<Shape>): void {
+    const op = this.document.update(id, patch);
+    this.notify(id);
+    this.broadcast({ kind: "op", op });
+  }
+
   private handleMessage(raw: string): void {
     let message: WireMessage;
     try {

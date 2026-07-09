@@ -17,7 +17,7 @@ console.log("(documents current whole-value LWW behavior — see Day 37 for a re
 
   const original: Shape = { id: "r1", type: "rect", x: 0, y: 0, width: 50, height: 50, color: "red" , rotation: 0, zIndex: 0};
   peerA.set("r1", original);
-  peerB.applyOp({ type: "set", shapeId: "r1", value: original, timestamp: { counter: 1, peerId: "peerA" } });
+  peerB.applyOp({ type: "set", shapeId: "r1", fields: original, timestamp: { counter: 1, peerId: "peerA" } });
 
   // Peer A changes only color. Peer B changes only position. "Concurrent"
   // meaning: each is built from the SAME prior state, unaware of the other.

@@ -20,9 +20,10 @@ export class SyncedCanvas {
   }
 
   updateShape(id: ShapeId, patch: Partial<Omit<Shape, "id" | "type">>): void {
-    const current = this.provider.getShape(id);
-    if (!current) return;
-    this.provider.localSet(id, { ...current, ...patch } as Shape);
+    // Day 37: send ONLY the changed fields, not a full merged shape —
+    // this is what lets concurrent edits to different fields both
+    // survive instead of one overwriting the other's untouched fields.
+    this.provider.localUpdate(id, patch);
   }
 
   removeShape(id: ShapeId): void {

@@ -24,8 +24,8 @@ console.log("(this is the automated version of the live two-tab experiment from 
   // than merging with live state, which is what makes this a TRUE
   // concurrent edit rather than an accidental sequential one.
   const base = baseRect();
-  peerA.applyOp({ type: "set", shapeId: "r1", value: base, timestamp: { counter: 1, peerId: "seed" } });
-  peerB.applyOp({ type: "set", shapeId: "r1", value: base, timestamp: { counter: 1, peerId: "seed" } });
+  peerA.applyOp({ type: "set", shapeId: "r1", fields: base, timestamp: { counter: 1, peerId: "seed" } });
+  peerB.applyOp({ type: "set", shapeId: "r1", fields: base, timestamp: { counter: 1, peerId: "seed" } });
 
   const moveA = peerA.set("r1", { ...base, x: 200, y: 200 });
   const moveB = peerB.set("r1", { ...base, x: 500, y: 500 });
@@ -53,7 +53,7 @@ console.log("\nTest: N peers all concurrently move the same shape — still exac
   const peers = Array.from({ length: peerCount }, (_, i) => new CrdtDocument(`peer-${i}`));
   const base = baseRect();
   for (const p of peers) {
-    p.applyOp({ type: "set", shapeId: "r1", value: base, timestamp: { counter: 1, peerId: "seed" } });
+    p.applyOp({ type: "set", shapeId: "r1", fields: base, timestamp: { counter: 1, peerId: "seed" } });
   }
 
   const moves = peers.map((p, i) => p.set("r1", { ...base, x: i * 111, y: i * 111 }));

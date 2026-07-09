@@ -44,13 +44,13 @@ console.log("Test 2: higher counter always wins, regardless of arrival order");
   const laterOp = {
     type: "set" as const,
     shapeId: "r1",
-    value: { id: "r1", type: "rect" as const, x: 0, y: 0, width: 10, height: 10, color: "green" , rotation: 0, zIndex: 0},
+    fields: { id: "r1", type: "rect" as const, x: 0, y: 0, width: 10, height: 10, color: "green" , rotation: 0, zIndex: 0},
     timestamp: { counter: 999, peerId: "peerY" },
   };
   const earlierOp = {
     type: "set" as const,
     shapeId: "r1",
-    value: { id: "r1", type: "rect" as const, x: 0, y: 0, width: 10, height: 10, color: "purple" , rotation: 0, zIndex: 0},
+    fields: { id: "r1", type: "rect" as const, x: 0, y: 0, width: 10, height: 10, color: "purple" , rotation: 0, zIndex: 0},
     timestamp: { counter: 1, peerId: "peerY" },
   };
 
@@ -71,7 +71,7 @@ console.log("Test 3: delete wins over a stale concurrent set");
   const staleSetOp = { // simulate a peer that hadn't seen the delete yet, with a lower counter
     type: "set" as const,
     shapeId: "r1",
-    value: { id: "r1", type: "rect" as const, x: 0, y: 0, width: 10, height: 10, color: "blue" , rotation: 0, zIndex: 0},
+    fields: { id: "r1", type: "rect" as const, x: 0, y: 0, width: 10, height: 10, color: "blue" , rotation: 0, zIndex: 0},
     timestamp: { counter: deleteOp.timestamp.counter - 1, peerId: "peerB" },
   };
 
@@ -90,13 +90,13 @@ console.log("Test 4: tie-break on equal counters is deterministic by peerId");
   const opFromA = {
     type: "set" as const,
     shapeId: "r1",
-    value: { id: "r1", type: "rect" as const, x: 0, y: 0, width: 10, height: 10, color: "from-a" , rotation: 0, zIndex: 0},
+    fields: { id: "r1", type: "rect" as const, x: 0, y: 0, width: 10, height: 10, color: "from-a" , rotation: 0, zIndex: 0},
     timestamp: { counter: 5, peerId: "aaa" },
   };
   const opFromZ = {
     type: "set" as const,
     shapeId: "r1",
-    value: { id: "r1", type: "rect" as const, x: 0, y: 0, width: 10, height: 10, color: "from-z" , rotation: 0, zIndex: 0},
+    fields: { id: "r1", type: "rect" as const, x: 0, y: 0, width: 10, height: 10, color: "from-z" , rotation: 0, zIndex: 0},
     timestamp: { counter: 5, peerId: "zzz" },
   };
 

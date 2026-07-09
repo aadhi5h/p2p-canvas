@@ -21,8 +21,8 @@ window.addEventListener("mousemove", (event) => {
   presence.broadcastCursor(event.clientX, event.clientY);
 });
 
-synced.addShape({ id: "r1", type: "rect", x: 100, y: 100, width: 120, height: 80, color: "#4f8ef7" , rotation: 0, zIndex: 0});
-synced.addShape({ id: "r2", type: "rect", x: 260, y: 180, width: 80, height: 80, color: "#f77c4f" , rotation: 0, zIndex: 0});
+synced.addShape({ id: "r1", type: "rect", x: 100, y: 100, width: 120, height: 80, color: "#4f8ef7", rotation: 0, zIndex: 0 });
+synced.addShape({ id: "r2", type: "rect", x: 260, y: 180, width: 80, height: 80, color: "#f77c4f", rotation: 0, zIndex: 0 });
 
 let draggingId: string | undefined;
 let dragOffsetX = 0;
@@ -50,15 +50,12 @@ window.addEventListener("mouseup", () => {
 });
 
 canvasEl.addEventListener("click", (event) => {
-  // If that click was actually the END of a drag, don't also create a
-  // new shape — dragMoved distinguishes "clicked to create" from
-  // "released after dragging".
   if (dragMoved) {
     dragMoved = false;
     return;
   }
   const hit = hitTest(state.getAllShapes(), event.clientX, event.clientY);
-  if (hit) return; // clicked an existing shape without dragging — do nothing, don't stack a new one on top
+  if (hit) return;
 
   const id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
   const colors = ["#4f8ef7", "#f77c4f", "#4ff78e", "#f74f8e", "#f7e14f"];
@@ -85,14 +82,12 @@ const peerStatuses = new Map<string, RTCPeerConnectionState>();
 const peerListEl = document.getElementById("peer-list")!;
 const actionStatus = document.getElementById("action-status")!;
 const offlineIndicator = document.getElementById("offline-indicator")!;
-updateOfflineIndicator();
 const offerOut = document.getElementById("offer-out") as HTMLTextAreaElement;
 const offerIn = document.getElementById("offer-in") as HTMLTextAreaElement;
 const answerOut = document.getElementById("answer-out") as HTMLTextAreaElement;
 const answerIn = document.getElementById("answer-in") as HTMLTextAreaElement;
 
 let lastOfferedPeerId: string | undefined;
-
 
 function connectedPeerCount(): number {
   return Array.from(peerStatuses.values()).filter((s) => s === "connected").length;
@@ -110,6 +105,8 @@ function updateOfflineIndicator(): void {
     offlineIndicator.style.color = "#a5f7a5";
   }
 }
+
+updateOfflineIndicator();
 
 function renderPeerList() {
   peerListEl.innerHTML = Array.from(peerStatuses.entries())
@@ -171,11 +168,6 @@ document.getElementById("btn-complete")!.addEventListener("click", safeHandler(a
   isOffline: () => connectedPeerCount() === 0,
 };
 
-// Day 33 experiment: deliberately provoke the whole-value LWW gap
-// from Day 18. Click "Set color" in Tab 1 and "Move position" in
-// Tab 2 within about a second of each other — one edit will fully
-// overwrite the other rather than merging, which is the documented
-// (if unintuitive) current behavior. Day 37 addresses this properly.
 document.getElementById("btn-experiment-color")?.addEventListener("click", () => {
   const colors = ["#ff0000", "#00ff00", "#0000ff", "#ffff00", "#ff00ff"];
   synced.updateShape("r1", { color: colors[Math.floor(Math.random() * colors.length)] });
@@ -189,21 +181,12 @@ document.getElementById("btn-experiment-move")?.addEventListener("click", () => 
   console.log("[experiment] moved r1, shape now:", provider.getShape("r1"));
 });
 
-
-// TRUE concurrent edit: built from a FIXED base shape, not whatever
-// is currently live — so clicking both in either order/timing still
-// produces a genuine collision, unlike the merge-with-current
-// buttons above which can accidentally sequence themselves.
-const collisionBase = { id: "r1", type: "rect" as const, x: 100, y: 100, width: 120, height: 80, color: "#4f8ef7", rotation: 0, zIndex: 0 };
-
 document.getElementById("btn-force-collision-color")?.addEventListener("click", () => {
-  synced.addShape({ ...collisionBase, color: "#ff0000" }); // addShape = raw set, no merge with current
-  console.log("[force-collision] sent COLOR-only edit built from fixed base");
+  synced.updateShape("r1", { color: "#ff0000" });
+  console.log("[force-collision] sent COLOR-only edit (partial patch)");
 });
 
 document.getElementById("btn-force-collision-move")?.addEventListener("click", () => {
-  synced.addShape({ ...collisionBase, x: 999, y: 999 });
-  console.log("[force-collision] sent POSITION-only edit built from fixed base");
+  synced.updateShape("r1", { x: 999, y: 999 });
+  console.log("[force-collision] sent POSITION-only edit (partial patch)");
 });
-
-
