@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "test": "tsc && node dist/crdt/document.test.js && node dist/crdt/concurrent-field-edit.test.js && node dist/crdt/concurrent-creation.test.js && node dist/network/presence.test.js && node dist/crdt/offline-merge.test.js && node dist/crdt/conflicting-positions.test.js",
+    "test": "tsc && node dist/crdt/document.test.js && node dist/crdt/concurrent-field-edit.test.js && node dist/crdt/concurrent-creation.test.js && node dist/network/presence.test.js && node dist/crdt/offline-merge.test.js && node dist/crdt/conflicting-positions.test.js && node dist/crdt/property-conflicts.test.js",
     "serve": "npx http-server . -p 8080 -c-1"
   },
   "devDependencies": {
