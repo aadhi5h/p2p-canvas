@@ -19,8 +19,8 @@ console.log("Test 1: concurrent edits to DIFFERENT fields both survive (the actu
   const peerB = new CrdtDocument("peerB");
   const base = baseRect();
 
-  peerA.applyOp({ type: "set", shapeId: "r1", fields: base, timestamp: { counter: 1, peerId: "seed" } });
-  peerB.applyOp({ type: "set", shapeId: "r1", fields: base, timestamp: { counter: 1, peerId: "seed" } });
+  peerA.applyOp({ type: "set", shapeId: "r1", fields: base as unknown as Record<string, unknown>, timestamp: { counter: 1, peerId: "seed" } });
+  peerB.applyOp({ type: "set", shapeId: "r1", fields: base as unknown as Record<string, unknown>, timestamp: { counter: 1, peerId: "seed" } });
 
   const colorOp = peerA.update("r1", { color: "#ff0000" });
   const moveOp = peerB.update("r1", { x: 999, y: 999 });
@@ -42,8 +42,8 @@ console.log("\nTest 2: concurrent edits to the SAME field still resolve via LWW 
   const peerB = new CrdtDocument("peerB2");
   const base = baseRect();
 
-  peerA.applyOp({ type: "set", shapeId: "r1", fields: base, timestamp: { counter: 1, peerId: "seed" } });
-  peerB.applyOp({ type: "set", shapeId: "r1", fields: base, timestamp: { counter: 1, peerId: "seed" } });
+  peerA.applyOp({ type: "set", shapeId: "r1", fields: base as unknown as Record<string, unknown>, timestamp: { counter: 1, peerId: "seed" } });
+  peerB.applyOp({ type: "set", shapeId: "r1", fields: base as unknown as Record<string, unknown>, timestamp: { counter: 1, peerId: "seed" } });
 
   const opA = peerA.update("r1", { color: "#ff0000" });
   const opB = peerB.update("r1", { color: "#00ff00" });
@@ -66,7 +66,7 @@ console.log("\nTest 3: three-way concurrent edit — each peer touches a differe
   const base = baseRect();
 
   for (const p of [peerA, peerB, peerC]) {
-    p.applyOp({ type: "set", shapeId: "r1", fields: base, timestamp: { counter: 1, peerId: "seed" } });
+    p.applyOp({ type: "set", shapeId: "r1", fields: base as unknown as Record<string, unknown>, timestamp: { counter: 1, peerId: "seed" } });
   }
 
   const opColor = peerA.update("r1", { color: "#123456" });

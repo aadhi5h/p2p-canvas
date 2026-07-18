@@ -6,18 +6,8 @@ interface FieldEntry {
   timestamp: LamportTimestamp;
 }
 
-// "deleted" is tracked as just another LWW field, alongside the
-// shape's real properties — that way delete-vs-recreate races
-// resolve with the exact same deterministic rule as any other field,
-// no special-cased tombstone logic needed.
-const DELETED_FIELD = "__deleted__";
+export const DELETED_FIELD = "__deleted__";
 
-/**
- * CrdtDocument — Day 37 rewrite. Whole-value LWW (Days 3-36) is
- * replaced with per-field LWW: every property of every shape has its
- * own independent timestamp. See docs/MERGE_BEHAVIOR.md for the full
- * history of why this changed.
- */
 export class CrdtDocument {
   private shapes = new Map<ShapeId, Map<string, FieldEntry>>();
   private clock = 0;
@@ -26,10 +16,15 @@ export class CrdtDocument {
 
   set(shapeId: ShapeId, shape: Shape): CrdtOp {
     const timestamp = this.tick();
-    const fields: Record<string, unknown> = { ...shape };
-    fields[DELETED_FIELD] = false; // recreating/editing implicitly un-deletes, at this timestamp
+    // Day 42 fix: the tombstone flag now travels WITH the broadcast
+    // fields, not just applied locally. Previously, reviving a
+    // deleted shape only worked on the originating peer — other
+    // peers received the shape's real fields but never learned the
+    // tombstone had flipped back to false, so it stayed invisible
+    // for them even though the origin peer considered it alive.
+    const fields: Record<string, unknown> = { ...shape, [DELETED_FIELD]: false };
     this.applyFields(shapeId, fields, timestamp);
-    return { type: "set", shapeId, fields: shape, timestamp };
+    return { type: "set", shapeId, fields, timestamp };
   }
 
   delete(shapeId: ShapeId): CrdtOp {
@@ -38,15 +33,7 @@ export class CrdtDocument {
     return { type: "delete", shapeId, timestamp };
   }
 
-
-  /**
-   * Day 37: partial field update. Unlike set() (whole-shape
-   * creation), this ONLY touches the fields present in `patch` — each
-   * gets this op's timestamp, but fields NOT in patch keep their own
-   * prior timestamp entirely untouched. This is what actually makes
-   * per-field merging work: set() alone can't, because it always
-   * writes every field of whatever shape you hand it.
-   */
+  /** Partial patch — only touches fields present in `patch`. Never touches the tombstone. */
   update(shapeId: ShapeId, patch: Partial<Shape>): CrdtOp {
     const timestamp = this.tick();
     this.applyFields(shapeId, { ...patch }, timestamp);
@@ -58,28 +45,24 @@ export class CrdtDocument {
     if (op.type === "delete") {
       this.applyFields(op.shapeId, { [DELETED_FIELD]: true }, op.timestamp);
     } else {
-      const fields: Record<string, unknown> = { ...(op.fields ?? {}) };
-      // A remote "set" doesn't necessarily mean "un-delete" unless the
-      // sender explicitly included it — but our own set() always does
-      // (see above), so this only matters for hand-constructed ops
-      // (e.g. tests). Real traffic always carries it.
-      this.applyFields(op.shapeId, fields, op.timestamp);
+      this.applyFields(op.shapeId, { ...(op.fields ?? {}) }, op.timestamp);
     }
+  }
+
+  isDeleted(shapeId: ShapeId): boolean {
+    return this.shapes.get(shapeId)?.get(DELETED_FIELD)?.value === true;
   }
 
   getShape(shapeId: ShapeId): Shape | undefined {
     const entry = this.shapes.get(shapeId);
     if (!entry) return undefined;
-
-    const deletedEntry = entry.get(DELETED_FIELD);
-    if (deletedEntry?.value === true) return undefined;
+    if (entry.get(DELETED_FIELD)?.value === true) return undefined;
 
     const result: Record<string, unknown> = {};
     for (const [field, fieldEntry] of entry) {
       if (field === DELETED_FIELD) continue;
       result[field] = fieldEntry.value;
     }
-    // Basic sanity check: a valid shape needs at least id and type.
     if (!("id" in result) || !("type" in result)) return undefined;
     return result as unknown as Shape;
   }
@@ -93,7 +76,6 @@ export class CrdtDocument {
     return result;
   }
 
-  /** Exports every known field of every shape (including tombstones) as raw ops, for late-join catch-up. */
   exportSnapshot(): CrdtOp[] {
     const ops: CrdtOp[] = [];
     for (const [shapeId, fieldMap] of this.shapes) {
@@ -113,12 +95,8 @@ export class CrdtDocument {
       }
       if (!latestTimestamp) continue;
 
-      // Snapshot as ONE combined "set" op per shape (simpler wire
-      // format for catch-up) at the latest known timestamp for that
-      // shape. This is an approximation — true per-field snapshot
-      // would resend each field's own timestamp — acceptable for a
-      // late-joiner who has no prior state to conflict with anyway.
-      ops.push({ type: "set", shapeId, fields: fields as Partial<Shape>, timestamp: latestTimestamp });
+      fields[DELETED_FIELD] = isDeleted;
+      ops.push({ type: "set", shapeId, fields, timestamp: latestTimestamp });
       if (isDeleted) {
         ops.push({ type: "delete", shapeId, timestamp: latestTimestamp });
       }
@@ -134,7 +112,7 @@ export class CrdtDocument {
     }
     for (const [field, value] of Object.entries(fields)) {
       const existing = entry.get(field);
-      if (existing && !isNewer(timestamp, existing.timestamp)) continue; // existing wins, per-field
+      if (existing && !isNewer(timestamp, existing.timestamp)) continue;
       entry.set(field, { value, timestamp });
     }
   }

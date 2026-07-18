@@ -5,10 +5,12 @@ export interface PresenceState {
   online: boolean;
   cursorX?: number;
   cursorY?: number;
+  vpX?: number;
+  vpY?: number;
+  vpZoom?: number;
 }
 
 type PresenceMessage = { kind: "presence"; state: PresenceState };
-
 export type PresenceListener = (state: PresenceState) => void;
 
 export class PresenceTracker {
@@ -17,6 +19,7 @@ export class PresenceTracker {
   private listeners = new Set<PresenceListener>();
   private transports = new Set<DataChannelTransport>();
   private lastCursorSend = 0;
+  private lastViewportSend = 0;
 
   constructor(private readonly localPeerId: string) {}
 
@@ -43,18 +46,19 @@ export class PresenceTracker {
     return Array.from(this.peers.values()).filter((p) => p.online);
   }
 
-  /**
-   * Broadcasts cursor position to every attached peer, throttled to
-   * ~20/sec. Cursor movement fires constantly (every mousemove), and
-   * without throttling we'd flood the data channel — presence data
-   * is inherently "latest wins" so dropping intermediate positions
-   * is completely fine, unlike CRDT ops where every op matters.
-   */
   broadcastCursor(x: number, y: number): void {
     const now = performance.now();
-    if (now - this.lastCursorSend < 50) return; // ~20Hz cap
+    if (now - this.lastCursorSend < 50) return;
     this.lastCursorSend = now;
     const state: PresenceState = { peerId: this.localPeerId, online: true, cursorX: x, cursorY: y };
+    for (const transport of this.transports) this.send(transport, state);
+  }
+
+  broadcastViewport(vp: { x: number; y: number; zoom: number }): void {
+    const now = performance.now();
+    if (now - this.lastViewportSend < 100) return; // viewport changes less often than cursor, lower rate is fine
+    this.lastViewportSend = now;
+    const state: PresenceState = { peerId: this.localPeerId, online: true, vpX: vp.x, vpY: vp.y, vpZoom: vp.zoom };
     for (const transport of this.transports) this.send(transport, state);
   }
 
@@ -67,8 +71,12 @@ export class PresenceTracker {
     }
     if (message.kind !== "presence") return;
     this.transportToPeerId.set(transport, message.state.peerId);
-    this.peers.set(message.state.peerId, message.state);
-    for (const l of this.listeners) l(message.state);
+    // Merge rather than replace — a cursor-only or viewport-only
+    // message shouldn't erase whichever fields the other message type
+    // last set (they're broadcast on separate throttled schedules).
+    const existing = this.peers.get(message.state.peerId) ?? { peerId: message.state.peerId, online: true };
+    this.peers.set(message.state.peerId, { ...existing, ...message.state });
+    for (const l of this.listeners) l(this.peers.get(message.state.peerId)!);
   }
 
   private send(transport: DataChannelTransport, state: PresenceState): void {

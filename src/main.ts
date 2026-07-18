@@ -1,24 +1,31 @@
 import { CanvasState } from "./canvas/state.js";
 import { startPlaceholderRenderer } from "./render/placeholder-renderer.js";
 import { hitTest } from "./canvas/hit-test.js";
+import { Viewport } from "./canvas/viewport.js";
 import { PeerManager } from "./network/peer-manager.js";
 import { CrdtProvider } from "./crdt/provider.js";
 import { SyncedCanvas } from "./crdt/synced-canvas.js";
 import { PresenceTracker } from "./network/presence.js";
 import { startCursorOverlay } from "./render/cursor-overlay.js";
+import { startViewportOverlay } from "./render/viewport-overlay.js";
 
 const canvasEl = document.getElementById("app-canvas") as HTMLCanvasElement;
 const state = new CanvasState();
-startPlaceholderRenderer(canvasEl, state);
+const viewport = new Viewport();
+startPlaceholderRenderer(canvasEl, state, viewport);
 
 const peerId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
 const provider = new CrdtProvider(peerId);
 const synced = new SyncedCanvas(provider, state);
 const presence = new PresenceTracker(peerId);
-startCursorOverlay(presence);
+startCursorOverlay(presence, viewport);
+startViewportOverlay(presence, viewport);
+
+viewport.onChange(() => presence.broadcastViewport(viewport.get()));
 
 window.addEventListener("mousemove", (event) => {
-  presence.broadcastCursor(event.clientX, event.clientY);
+  const world = viewport.screenToWorld(event.clientX, event.clientY);
+  presence.broadcastCursor(world.x, world.y);
 });
 
 synced.addShape({ id: "r1", type: "rect", x: 100, y: 100, width: 120, height: 80, color: "#4f8ef7", rotation: 0, zIndex: 0 });
@@ -28,33 +35,58 @@ let draggingId: string | undefined;
 let dragOffsetX = 0;
 let dragOffsetY = 0;
 let dragMoved = false;
+let isPanning = false;
+let lastPanScreenX = 0;
+let lastPanScreenY = 0;
 
 canvasEl.addEventListener("mousedown", (event) => {
-  const hit = hitTest(state.getAllShapes(), event.clientX, event.clientY);
+  const world = viewport.screenToWorld(event.clientX, event.clientY);
+  const hit = hitTest(state.getAllShapes(), world.x, world.y);
   if (hit) {
     draggingId = hit.id;
-    dragOffsetX = event.clientX - hit.x;
-    dragOffsetY = event.clientY - hit.y;
+    dragOffsetX = world.x - hit.x;
+    dragOffsetY = world.y - hit.y;
     dragMoved = false;
+  } else {
+    isPanning = true;
+    lastPanScreenX = event.clientX;
+    lastPanScreenY = event.clientY;
   }
 });
 
 canvasEl.addEventListener("mousemove", (event) => {
-  if (!draggingId) return;
-  dragMoved = true;
-  synced.updateShape(draggingId, { x: event.clientX - dragOffsetX, y: event.clientY - dragOffsetY });
+  if (draggingId) {
+    dragMoved = true;
+    const world = viewport.screenToWorld(event.clientX, event.clientY);
+    synced.updateShape(draggingId, { x: world.x - dragOffsetX, y: world.y - dragOffsetY });
+  } else if (isPanning) {
+    const dx = event.clientX - lastPanScreenX;
+    const dy = event.clientY - lastPanScreenY;
+    viewport.pan(dx, dy);
+    lastPanScreenX = event.clientX;
+    lastPanScreenY = event.clientY;
+  }
 });
 
 window.addEventListener("mouseup", () => {
   draggingId = undefined;
+  isPanning = false;
 });
+
+canvasEl.addEventListener("wheel", (event) => {
+  event.preventDefault();
+  const factor = event.deltaY < 0 ? 1.1 : 0.9;
+  viewport.zoomAt(factor, event.clientX, event.clientY);
+}, { passive: false });
 
 canvasEl.addEventListener("click", (event) => {
   if (dragMoved) {
     dragMoved = false;
     return;
   }
-  const hit = hitTest(state.getAllShapes(), event.clientX, event.clientY);
+  if (isPanning) return; // click that ends a pan shouldn't also create a shape
+  const world = viewport.screenToWorld(event.clientX, event.clientY);
+  const hit = hitTest(state.getAllShapes(), world.x, world.y);
   if (hit) return;
 
   const id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
@@ -65,13 +97,13 @@ canvasEl.addEventListener("click", (event) => {
   if (Math.random() < 0.5) {
     synced.addShape({
       id, type: "rect",
-      x: event.clientX - 25, y: event.clientY - 25, width: 50, height: 50,
+      x: world.x - 25, y: world.y - 25, width: 50, height: 50,
       color, rotation: Math.random() * 45, zIndex,
     });
   } else {
     synced.addShape({
       id, type: "circle",
-      x: event.clientX, y: event.clientY, radius: 25,
+      x: world.x, y: world.y, radius: 25,
       color, rotation: 0, zIndex,
     });
   }
@@ -160,7 +192,7 @@ document.getElementById("btn-complete")!.addEventListener("click", safeHandler(a
 }));
 
 (window as any).debug = {
-  manager, state, provider, synced,
+  manager, state, provider, synced, viewport,
   shapeCount: () => provider.getAllShapes().length,
   shapeIds: () => provider.getAllShapes().map((s) => s.id).sort(),
   presence,
