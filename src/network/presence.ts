@@ -18,8 +18,8 @@ export class PresenceTracker {
   private transportToPeerId = new Map<DataChannelTransport, string>();
   private listeners = new Set<PresenceListener>();
   private transports = new Set<DataChannelTransport>();
-  private lastCursorSend = 0;
-  private lastViewportSend = 0;
+  private lastCursorSend = -Infinity;
+  private lastViewportSend = -Infinity;
 
   constructor(private readonly localPeerId: string) {}
 
