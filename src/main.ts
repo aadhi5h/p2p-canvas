@@ -14,6 +14,29 @@ const state = new CanvasState();
 const viewport = new Viewport();
 startPlaceholderRenderer(canvasEl, state, viewport);
 
+// Day 53: WebGPU device/context initialization, running alongside
+// the existing Canvas2D renderer (not replacing it yet — that's
+// Day 58+). Proves the GPU pipeline works before shapes get added.
+import("./render/webgpu/device.js").then(async ({ initWebGPU }) => {
+  const webgpuCanvas = document.getElementById("webgpu-canvas") as HTMLCanvasElement | null;
+  const statusEl = document.getElementById("webgpu-status")!;
+  if (!webgpuCanvas) return;
+
+  const gpu = await initWebGPU(webgpuCanvas);
+  if (!gpu) {
+    statusEl.textContent = "WebGPU: unavailable in this browser";
+    statusEl.style.color = "#f7a5a5";
+    return;
+  }
+
+  statusEl.textContent = "WebGPU: device + context initialized ✓";
+  statusEl.style.color = "#a5f7a5";
+
+  const { startWebGPURenderer } = await import("./render/webgpu/webgpu-renderer.js");
+  startWebGPURenderer(webgpuCanvas, gpu);
+});
+
+
 const peerId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
 const provider = new CrdtProvider(peerId);
 const synced = new SyncedCanvas(provider, state);
