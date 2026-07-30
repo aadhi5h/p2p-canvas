@@ -1,13 +1,14 @@
 import type { WebGPUContext } from "./device.js";
+import type { CanvasState } from "../../canvas/state.js";
+import type { Viewport } from "../../canvas/viewport.js";
+import { createShapePipeline, buildVertexData } from "./shape-pipeline.js";
 
-/**
- * scope: prove the device/context/render-loop pipeline works
- * end to end. Just clears to a color each frame - no vertex buffers,
- * no shapes yet. This IS a real GPU render pass,
- * though, not a placeholder - it proves requestAnimationFrame,
- * command encoding, and presentation all function correctly.
- */
-export function startWebGPURenderer(canvasEl: HTMLCanvasElement, gpu: WebGPUContext): void {
+export function startWebGPURenderer(
+  canvasEl: HTMLCanvasElement,
+  gpu: WebGPUContext,
+  state: CanvasState,
+  viewport: Viewport
+): void {
   function resize() {
     canvasEl.width = canvasEl.clientWidth;
     canvasEl.height = canvasEl.clientHeight;
@@ -15,9 +16,18 @@ export function startWebGPURenderer(canvasEl: HTMLCanvasElement, gpu: WebGPUCont
   window.addEventListener("resize", resize);
   resize();
 
+  const shapePipeline = createShapePipeline(gpu.device, gpu.format);
+
   function frame() {
+    const shapes = state.getAllShapes();
+    const vertexData = buildVertexData(shapes);
+
     const encoder = gpu.device.createCommandEncoder();
     const textureView = gpu.context.getCurrentTexture().createView();
+
+    const v = viewport.get();
+    const cameraData = new Float32Array([v.x, v.y, v.zoom, canvasEl.width, canvasEl.height, 0, 0, 0]);
+    gpu.device.queue.writeBuffer(shapePipeline.cameraBuffer, 0, cameraData);
 
     const pass = encoder.beginRenderPass({
       colorAttachments: [
@@ -29,8 +39,26 @@ export function startWebGPURenderer(canvasEl: HTMLCanvasElement, gpu: WebGPUCont
         },
       ],
     });
-    pass.end();
 
+    if (vertexData.length > 0) {
+      // Recreated every frame for simplicity — correct but not
+      // optimal. Buffer reuse/pooling is addressed in the later
+      // GPU buffer optimization pass (Day 76 in our plan).
+      const vertexBuffer = gpu.device.createBuffer({
+        size: vertexData.byteLength,
+        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+        mappedAtCreation: true,
+      });
+      new Float32Array(vertexBuffer.getMappedRange()).set(vertexData);
+      vertexBuffer.unmap();
+
+      pass.setPipeline(shapePipeline.pipeline);
+      pass.setBindGroup(0, shapePipeline.bindGroup);
+      pass.setVertexBuffer(0, vertexBuffer);
+      pass.draw(vertexData.length / 9);
+    }
+
+    pass.end();
     gpu.device.queue.submit([encoder.finish()]);
     requestAnimationFrame(frame);
   }

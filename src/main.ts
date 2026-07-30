@@ -33,7 +33,7 @@ import("./render/webgpu/device.js").then(async ({ initWebGPU }) => {
   statusEl.style.color = "#a5f7a5";
 
   const { startWebGPURenderer } = await import("./render/webgpu/webgpu-renderer.js");
-  startWebGPURenderer(webgpuCanvas, gpu);
+  startWebGPURenderer(webgpuCanvas, gpu, state, viewport);
 });
 
 
