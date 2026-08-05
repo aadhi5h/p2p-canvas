@@ -1,10 +1,8 @@
 import type { Shape } from "../../canvas/types.js";
+import type { ViewportValue } from "../../canvas/viewport.js";
 
-// Each vertex: worldPos(2f) + localUV(2f) + color(4f) + shapeType(1f) = 9 floats.
-// localUV is used only by circles, to mask a quad into a disc in the
-// fragment shader; harmless (unused) for rects.
 const FLOATS_PER_VERTEX = 9;
-const VERTICES_PER_SHAPE = 6; // two triangles making a quad
+const VERTICES_PER_SHAPE = 6;
 
 const SHADER_SOURCE = `
 struct Camera {
@@ -63,21 +61,17 @@ export interface ShapePipeline {
 
 export function createShapePipeline(device: GPUDevice, format: GPUTextureFormat): ShapePipeline {
   const shaderModule = device.createShaderModule({ code: SHADER_SOURCE });
-
   const cameraBuffer = device.createBuffer({
-    size: 32, // 5 f32s, padded to a multiple of 16 bytes
+    size: 32,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
-
   const bindGroupLayout = device.createBindGroupLayout({
     entries: [{ binding: 0, visibility: GPUShaderStage.VERTEX, buffer: { type: "uniform" } }],
   });
-
   const bindGroup = device.createBindGroup({
     layout: bindGroupLayout,
     entries: [{ binding: 0, resource: { buffer: cameraBuffer } }],
   });
-
   const pipeline = device.createRenderPipeline({
     layout: device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] }),
     vertex: {
@@ -95,14 +89,9 @@ export function createShapePipeline(device: GPUDevice, format: GPUTextureFormat)
         },
       ],
     },
-    fragment: {
-      module: shaderModule,
-      entryPoint: "fs_main",
-      targets: [{ format }],
-    },
+    fragment: { module: shaderModule, entryPoint: "fs_main", targets: [{ format }] },
     primitive: { topology: "triangle-list" },
   });
-
   return { pipeline, cameraBuffer, bindGroup };
 }
 
@@ -113,9 +102,35 @@ function hexToRgba(hex: string): [number, number, number, number] {
   return [r, g, b, 1];
 }
 
-/** Builds one flat vertex buffer for every shape, rotation applied on the CPU (no matrix math needed in the shader). */
+/** Rough world-space bounding box for any shape — good enough for a cheap AABB cull, doesn't need to be exact for rotated shapes (slightly over-includes, never under-includes). */
+function boundingBox(shape: Shape): { minX: number; minY: number; maxX: number; maxY: number } {
+  if (shape.type === "rect") {
+    const cx = shape.x + shape.width / 2;
+    const cy = shape.y + shape.height / 2;
+    // Use the diagonal as a radius so rotation can never push the
+    // shape outside this box — conservative but cheap, no trig needed.
+    const r = Math.sqrt(shape.width * shape.width + shape.height * shape.height) / 2;
+    return { minX: cx - r, minY: cy - r, maxX: cx + r, maxY: cy + r };
+  } else {
+    return { minX: shape.x - shape.radius, minY: shape.y - shape.radius, maxX: shape.x + shape.radius, maxY: shape.y + shape.radius };
+  }
+}
+
+/** Skips shapes whose bounding box doesn't intersect the visible world-space viewport rectangle at all. */
+export function cullShapes(shapes: Shape[], viewport: ViewportValue, canvasWidth: number, canvasHeight: number): Shape[] {
+  const viewMinX = viewport.x;
+  const viewMinY = viewport.y;
+  const viewMaxX = viewport.x + canvasWidth / viewport.zoom;
+  const viewMaxY = viewport.y + canvasHeight / viewport.zoom;
+
+  return shapes.filter((shape) => {
+    const box = boundingBox(shape);
+    return box.maxX >= viewMinX && box.minX <= viewMaxX && box.maxY >= viewMinY && box.minY <= viewMaxY;
+  });
+}
+
 export function buildVertexData(shapes: Shape[]): Float32Array {
-  const sorted = [...shapes].sort((a, b) => a.zIndex - b.zIndex); // painter's algorithm: draw low zIndex first
+  const sorted = [...shapes].sort((a, b) => a.zIndex - b.zIndex);
   const data = new Float32Array(sorted.length * VERTICES_PER_SHAPE * FLOATS_PER_VERTEX);
   let offset = 0;
 
@@ -146,7 +161,6 @@ export function buildVertexData(shapes: Shape[]): Float32Array {
       [hw, hh, 1, 1],
       [-hw, hh, -1, 1],
     ];
-
     const worldCorners = corners.map(([lx, ly, u, v]) => ({
       wx: cx + (lx * cosR - ly * sinR),
       wy: cy + (lx * sinR + ly * cosR),
