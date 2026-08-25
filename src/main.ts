@@ -33,7 +33,7 @@ import("./render/webgpu/device.js").then(async ({ initWebGPU }) => {
   statusEl.style.color = "#a5f7a5";
 
   const { startWebGPURenderer } = await import("./render/webgpu/webgpu-renderer.js");
-  startWebGPURenderer(webgpuCanvas, gpu, state, viewport);
+  startWebGPURenderer(webgpuCanvas, gpu, provider, viewport);
 
   const { createPickPipeline, gpuHitTest } = await import("./render/webgpu/pick-pipeline.js");
   const pick = createPickPipeline(gpu.device);
@@ -42,7 +42,7 @@ import("./render/webgpu/device.js").then(async ({ initWebGPU }) => {
   (window as any).debug = {
     ...(window as any).debug,
     gpuHitTest: (x: number, y: number) =>
-      gpuHitTest(gpu.device, pick, state.getAllShapes(), viewport.get(), webgpuCanvas.width, webgpuCanvas.height, x, y),
+      gpuHitTest(gpu.device, pick, provider.getAllShapes(), viewport.get(), webgpuCanvas.width, webgpuCanvas.height, x, y),
     runBenchmark: (count: number) => runRenderBenchmark(state, count),
   };
 });

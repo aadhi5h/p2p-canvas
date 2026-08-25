@@ -1,12 +1,12 @@
 import type { WebGPUContext } from "./device.js";
-import type { CanvasState } from "../../canvas/state.js";
+import type { CrdtProvider } from "../../crdt/provider.js";
 import type { Viewport } from "../../canvas/viewport.js";
 import { createShapePipeline, buildVertexData, cullShapes } from "./shape-pipeline.js";
 
 export function startWebGPURenderer(
   canvasEl: HTMLCanvasElement,
   gpu: WebGPUContext,
-  state: CanvasState,
+  provider: CrdtProvider,
   viewport: Viewport
 ): void {
   function resize() {
@@ -42,7 +42,7 @@ export function startWebGPURenderer(
   }
 
   function frame() {
-    const allShapes = state.getAllShapes();
+    const allShapes = provider.getAllShapes();
     const v = viewport.get();
     const visibleShapes = cullShapes(allShapes, v, canvasEl.width, canvasEl.height);
 
