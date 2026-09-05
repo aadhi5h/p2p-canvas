@@ -38,8 +38,7 @@ console.log("Test 1: cursor and viewport broadcasts MERGE rather than overwrite 
 
   peerA.broadcastCursor(100, 200);
   peerA.broadcastViewport({ x: 0, y: 0, zoom: 1.5 });
-
-  console.log("  [debug] peerB.getOnlinePeers():", JSON.stringify(peerB.getOnlinePeers()));
+ 
   const seen = peerB.getOnlinePeers().find((p) => p.peerId === "peerA");
   assert(seen?.cursorX === 100 && seen?.cursorY === 200, "cursor position present after both broadcasts");
   assert(seen?.vpX === 0 && seen?.vpY === 0 && seen?.vpZoom === 1.5, "viewport ALSO present — one broadcast didn't erase the other");

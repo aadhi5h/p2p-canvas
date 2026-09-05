@@ -5,25 +5,17 @@ import type { Shape, ShapeId } from "../canvas/types.js";
 
 type WireMessage =
   | { kind: "op"; op: CrdtOp }
+  | { kind: "batch"; ops: CrdtOp[] }
   | { kind: "snapshot"; ops: CrdtOp[] };
 
 export type ShapeChangeListener = (shapeId: ShapeId, resolved: Shape | undefined) => void;
 
-/**
- * Wraps a raw CrdtDocument and owns everything about staying in
- * sync over the wire:
- *  - broadcasting local edits as ops, to every attached peer
- *  - applying remote ops through conflict resolution
- *  - sending a FULL SNAPSHOT to any newly attached peer, since a
- *    late joiner has seen none of the prior ops (the gap from Day 8)
- *  - notifying listeners whenever a shape's resolved value changes,
- *    whether the change came from a local edit, a live remote op,
- *    or a catch-up snapshot
- */
 export class CrdtProvider {
   private readonly document: CrdtDocument;
   private transports = new Set<DataChannelTransport>();
   private listeners = new Set<ShapeChangeListener>();
+  private pendingOps: CrdtOp[] = [];
+  private batchFlushScheduled = false;
 
   constructor(peerId: string) {
     this.document = new CrdtDocument(peerId);
@@ -37,7 +29,6 @@ export class CrdtProvider {
     this.send(transport, { kind: "snapshot", ops: snapshot });
   }
 
-
   detachTransport(transport: DataChannelTransport): void {
     this.transports.delete(transport);
   }
@@ -49,13 +40,19 @@ export class CrdtProvider {
   localSet(id: ShapeId, shape: Shape): void {
     const op = this.document.set(id, shape);
     this.notify(id);
-    this.broadcast({ kind: "op", op });
+    this.queueOp(op);
+  }
+
+  localUpdate(id: ShapeId, patch: Partial<Shape>): void {
+    const op = this.document.update(id, patch);
+    this.notify(id);
+    this.queueOp(op);
   }
 
   localDelete(id: ShapeId): void {
     const op = this.document.delete(id);
     this.notify(id);
-    this.broadcast({ kind: "op", op });
+    this.queueOp(op);
   }
 
   getShape(id: ShapeId): Shape | undefined {
@@ -66,12 +63,20 @@ export class CrdtProvider {
     return this.document.getAllShapes();
   }
 
+  private queueOp(op: CrdtOp): void {
+    this.pendingOps.push(op);
+    if (!this.batchFlushScheduled) {
+      this.batchFlushScheduled = true;
+      queueMicrotask(() => this.flushBatch());
+    }
+  }
 
-  /** Day 37: partial patch — only broadcasts/merges the changed fields, not the whole shape. */
-  localUpdate(id: ShapeId, patch: Partial<Shape>): void {
-    const op = this.document.update(id, patch);
-    this.notify(id);
-    this.broadcast({ kind: "op", op });
+  private flushBatch(): void {
+    this.batchFlushScheduled = false;
+    if (this.pendingOps.length === 0) return;
+    const ops = this.pendingOps;
+    this.pendingOps = [];
+    this.broadcast({ kind: "batch", ops });
   }
 
   private handleMessage(raw: string): void {
@@ -86,7 +91,7 @@ export class CrdtProvider {
     if (message.kind === "op") {
       this.document.applyOp(message.op);
       this.notify(message.op.shapeId);
-    } else if (message.kind === "snapshot") {
+    } else if (message.kind === "batch" || message.kind === "snapshot") {
       for (const op of message.ops) {
         this.document.applyOp(op);
         this.notify(op.shapeId);
