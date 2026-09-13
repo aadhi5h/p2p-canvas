@@ -2,26 +2,19 @@ import type { PeerConnection } from "./peer-connection.js";
 
 export type MessageListener = (data: string) => void;
 
-/**
- * Wraps an RTCDataChannel so callers can send() immediately without
- * worrying about connection state — messages sent before the channel
- * opens are queued and flushed once it does. This matters a lot in
- * practice: local edits can happen before the peer connection
- * finishes its handshake, and we don't want to drop them.
- */
-export class DataChannelTransport {
+export interface Transport {
+  send(data: string): void;
+  onMessage(listener: MessageListener): void;
+}
+
+export class DataChannelTransport implements Transport {
   private channel: RTCDataChannel;
   private queue: string[] = [];
   private isOpen = false;
   private messageListeners = new Set<MessageListener>();
 
-  // The peer that calls createOffer() also owns creating the
-  // channel; the answering peer receives it via ondatachannel
-  // (see fromExisting below).
   static createInitiator(peer: PeerConnection): DataChannelTransport {
-    const channel = peer.raw.createDataChannel("crdt-sync", {
-      ordered: true, // we need ops to arrive in send order for the Lamport clock reasoning to hold
-    });
+    const channel = peer.raw.createDataChannel("crdt-sync", { ordered: true });
     return new DataChannelTransport(channel);
   }
 

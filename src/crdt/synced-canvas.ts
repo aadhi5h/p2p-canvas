@@ -1,6 +1,6 @@
 import { CanvasState } from "../canvas/state.js";
 import { CrdtProvider } from "./provider.js";
-import type { DataChannelTransport } from "../network/data-channel-transport.js";
+import type { Transport } from "../network/data-channel-transport.js";
 import type { Shape, ShapeId } from "../canvas/types.js";
 
 export class SyncedCanvas {
@@ -11,7 +11,7 @@ export class SyncedCanvas {
     provider.onShapeChange((shapeId, resolved) => this.syncState(shapeId, resolved));
   }
 
-  attachTransport(transport: DataChannelTransport): void {
+  attachTransport(transport: Transport): void {
     this.provider.attachTransport(transport);
   }
 
@@ -20,9 +20,6 @@ export class SyncedCanvas {
   }
 
   updateShape(id: ShapeId, patch: Partial<Omit<Shape, "id" | "type">>): void {
-    // Day 37: send ONLY the changed fields, not a full merged shape —
-    // this is what lets concurrent edits to different fields both
-    // survive instead of one overwriting the other's untouched fields.
     this.provider.localUpdate(id, patch);
   }
 

@@ -1,6 +1,6 @@
 import { CrdtDocument } from "./document.js";
 import type { CrdtOp } from "./types.js";
-import type { DataChannelTransport } from "../network/data-channel-transport.js";
+import type { Transport } from "../network/data-channel-transport.js";
 import type { Shape, ShapeId } from "../canvas/types.js";
 
 type WireMessage =
@@ -12,7 +12,7 @@ export type ShapeChangeListener = (shapeId: ShapeId, resolved: Shape | undefined
 
 export class CrdtProvider {
   private readonly document: CrdtDocument;
-  private transports = new Set<DataChannelTransport>();
+  private transports = new Set<Transport>();
   private listeners = new Set<ShapeChangeListener>();
   private pendingOps: CrdtOp[] = [];
   private batchFlushScheduled = false;
@@ -21,15 +21,14 @@ export class CrdtProvider {
     this.document = new CrdtDocument(peerId);
   }
 
-  attachTransport(transport: DataChannelTransport): void {
+  attachTransport(transport: Transport): void {
     this.transports.add(transport);
     transport.onMessage((raw) => this.handleMessage(raw));
-
     const snapshot = this.document.exportSnapshot();
     this.send(transport, { kind: "snapshot", ops: snapshot });
   }
 
-  detachTransport(transport: DataChannelTransport): void {
+  detachTransport(transport: Transport): void {
     this.transports.delete(transport);
   }
 
@@ -84,10 +83,8 @@ export class CrdtProvider {
     try {
       message = JSON.parse(raw);
     } catch {
-      console.warn("[crdt-provider] ignoring malformed message:", raw);
       return;
     }
-
     if (message.kind === "op") {
       this.document.applyOp(message.op);
       this.notify(message.op.shapeId);
@@ -103,7 +100,7 @@ export class CrdtProvider {
     for (const transport of this.transports) this.send(transport, message);
   }
 
-  private send(transport: DataChannelTransport, message: WireMessage): void {
+  private send(transport: Transport, message: WireMessage): void {
     transport.send(JSON.stringify(message));
   }
 

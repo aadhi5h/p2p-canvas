@@ -8,15 +8,14 @@ import { SyncedCanvas } from "./crdt/synced-canvas.js";
 import { PresenceTracker } from "./network/presence.js";
 import { startCursorOverlay } from "./render/cursor-overlay.js";
 import { startViewportOverlay } from "./render/viewport-overlay.js";
+import { EncryptedTransport } from "./crypto/encrypted-transport.js";
 
 const canvasEl = document.getElementById("app-canvas") as HTMLCanvasElement;
 const state = new CanvasState();
 const viewport = new Viewport();
 startPlaceholderRenderer(canvasEl, state, viewport);
 
-// Day 53: WebGPU device/context initialization, running alongside
-// the existing Canvas2D renderer (not replacing it yet — that's
-// Day 58+). Proves the GPU pipeline works before shapes get added.
+
 import("./render/webgpu/device.js").then(async ({ initWebGPU }) => {
   const webgpuCanvas = document.getElementById("webgpu-canvas") as HTMLCanvasElement | null;
   const statusEl = document.getElementById("webgpu-status")!;
@@ -186,14 +185,22 @@ manager.onStatusChange((peerId, status) => {
   updateOfflineIndicator();
 });
 
+const encryptedTransports = new Map<any, EncryptedTransport>();
+
 manager.onTransportReady((_peerId, transport) => {
-  synced.attachTransport(transport);
-  presence.attachTransport(transport);
+  const encrypted = new EncryptedTransport(transport);
+  encryptedTransports.set(transport, encrypted);
+  synced.attachTransport(encrypted);
+  presence.attachTransport(encrypted);
 });
 
 manager.onDisconnect((peerId, transport) => {
-  if (transport) provider.detachTransport(transport);
-  if (transport) presence.detachTransport(transport);
+  const encrypted = transport ? encryptedTransports.get(transport) : undefined;
+  if (encrypted) {
+    provider.detachTransport(encrypted);
+    presence.detachTransport(encrypted);
+    encryptedTransports.delete(transport!);
+  }
   peerStatuses.delete(peerId);
   renderPeerList();
   updateOfflineIndicator();

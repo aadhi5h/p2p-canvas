@@ -1,4 +1,4 @@
-import type { DataChannelTransport } from "./data-channel-transport.js";
+import type { Transport } from "./data-channel-transport.js";
 
 export interface PresenceState {
   peerId: string;
@@ -15,21 +15,21 @@ export type PresenceListener = (state: PresenceState) => void;
 
 export class PresenceTracker {
   private peers = new Map<string, PresenceState>();
-  private transportToPeerId = new Map<DataChannelTransport, string>();
+  private transportToPeerId = new Map<Transport, string>();
   private listeners = new Set<PresenceListener>();
-  private transports = new Set<DataChannelTransport>();
+  private transports = new Set<Transport>();
   private lastCursorSend = -Infinity;
   private lastViewportSend = -Infinity;
 
   constructor(private readonly localPeerId: string) {}
 
-  attachTransport(transport: DataChannelTransport): void {
+  attachTransport(transport: Transport): void {
     this.transports.add(transport);
     transport.onMessage((raw) => this.handleMessage(transport, raw));
     this.send(transport, { peerId: this.localPeerId, online: true });
   }
 
-  detachTransport(transport: DataChannelTransport): void {
+  detachTransport(transport: Transport): void {
     this.transports.delete(transport);
     const remotePeerId = this.transportToPeerId.get(transport);
     this.transportToPeerId.delete(transport);
@@ -56,13 +56,13 @@ export class PresenceTracker {
 
   broadcastViewport(vp: { x: number; y: number; zoom: number }): void {
     const now = performance.now();
-    if (now - this.lastViewportSend < 100) return; // viewport changes less often than cursor, lower rate is fine
+    if (now - this.lastViewportSend < 100) return;
     this.lastViewportSend = now;
     const state: PresenceState = { peerId: this.localPeerId, online: true, vpX: vp.x, vpY: vp.y, vpZoom: vp.zoom };
     for (const transport of this.transports) this.send(transport, state);
   }
 
-  private handleMessage(transport: DataChannelTransport, raw: string): void {
+  private handleMessage(transport: Transport, raw: string): void {
     let message: PresenceMessage;
     try {
       message = JSON.parse(raw);
@@ -71,15 +71,12 @@ export class PresenceTracker {
     }
     if (message.kind !== "presence") return;
     this.transportToPeerId.set(transport, message.state.peerId);
-    // Merge rather than replace — a cursor-only or viewport-only
-    // message shouldn't erase whichever fields the other message type
-    // last set (they're broadcast on separate throttled schedules).
     const existing = this.peers.get(message.state.peerId) ?? { peerId: message.state.peerId, online: true };
     this.peers.set(message.state.peerId, { ...existing, ...message.state });
     for (const l of this.listeners) l(this.peers.get(message.state.peerId)!);
   }
 
-  private send(transport: DataChannelTransport, state: PresenceState): void {
+  private send(transport: Transport, state: PresenceState): void {
     transport.send(JSON.stringify({ kind: "presence", state } satisfies PresenceMessage));
   }
 }
