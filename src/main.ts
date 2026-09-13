@@ -15,6 +15,12 @@ const state = new CanvasState();
 const viewport = new Viewport();
 startPlaceholderRenderer(canvasEl, state, viewport);
 
+const peerId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+const provider = new CrdtProvider(peerId);
+const synced = new SyncedCanvas(provider, state);
+const presence = new PresenceTracker(peerId);
+startCursorOverlay(presence, viewport);
+startViewportOverlay(presence, viewport);
 
 import("./render/webgpu/device.js").then(async ({ initWebGPU }) => {
   const webgpuCanvas = document.getElementById("webgpu-canvas") as HTMLCanvasElement | null;
@@ -24,12 +30,12 @@ import("./render/webgpu/device.js").then(async ({ initWebGPU }) => {
   const gpu = await initWebGPU(webgpuCanvas);
   if (!gpu) {
     statusEl.textContent = "WebGPU: unavailable in this browser";
-    statusEl.style.color = "#f7a5a5";
+    statusEl.style.color = "#6B706C";
     return;
   }
 
-  statusEl.textContent = "WebGPU: device + context initialized ✓";
-  statusEl.style.color = "#a5f7a5";
+  statusEl.textContent = "WebGPU: device + context initialized";
+  statusEl.style.color = "#DFFF00";
 
   const { startWebGPURenderer } = await import("./render/webgpu/webgpu-renderer.js");
   startWebGPURenderer(webgpuCanvas, gpu, provider, viewport);
@@ -46,13 +52,8 @@ import("./render/webgpu/device.js").then(async ({ initWebGPU }) => {
   };
 });
 
-
-const peerId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
-const provider = new CrdtProvider(peerId);
-const synced = new SyncedCanvas(provider, state);
-const presence = new PresenceTracker(peerId);
-startCursorOverlay(presence, viewport);
-startViewportOverlay(presence, viewport);
+synced.addShape({ id: "r1", type: "rect", x: 100, y: 100, width: 120, height: 80, color: "#4f8ef7", rotation: 0, zIndex: 0 });
+synced.addShape({ id: "r2", type: "rect", x: 260, y: 180, width: 80, height: 80, color: "#f77c4f", rotation: 0, zIndex: 0 });
 
 viewport.onChange(() => presence.broadcastViewport(viewport.get()));
 
@@ -60,9 +61,6 @@ window.addEventListener("mousemove", (event) => {
   const world = viewport.screenToWorld(event.clientX, event.clientY);
   presence.broadcastCursor(world.x, world.y);
 });
-
-synced.addShape({ id: "r1", type: "rect", x: 100, y: 100, width: 120, height: 80, color: "#4f8ef7", rotation: 0, zIndex: 0 });
-synced.addShape({ id: "r2", type: "rect", x: 260, y: 180, width: 80, height: 80, color: "#f77c4f", rotation: 0, zIndex: 0 });
 
 let draggingId: string | undefined;
 let dragOffsetX = 0;
@@ -117,13 +115,13 @@ canvasEl.addEventListener("click", (event) => {
     dragMoved = false;
     return;
   }
-  if (isPanning) return; // click that ends a pan shouldn't also create a shape
+  if (isPanning) return;
   const world = viewport.screenToWorld(event.clientX, event.clientY);
   const hit = hitTest(state.getAllShapes(), world.x, world.y);
   if (hit) return;
 
   const id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
-  const colors = ["#4f8ef7", "#f77c4f", "#4ff78e", "#f74f8e", "#f7e14f"];
+  const colors = ["#00C853", "#00FF55", "#7DFF00", "#DFFF00", "#FFFF00"];
   const color = colors[Math.floor(Math.random() * colors.length)];
   const zIndex = state.getAllShapes().length;
 
@@ -161,13 +159,11 @@ function connectedPeerCount(): number {
 function updateOfflineIndicator(): void {
   const count = connectedPeerCount();
   if (count === 0) {
-    offlineIndicator.textContent = "OFFLINE — editing locally, will sync when connected";
-    offlineIndicator.style.background = "#5a2a2a";
-    offlineIndicator.style.color = "#f7a5a5";
+    offlineIndicator.textContent = "OFFLINE";
+    offlineIndicator.classList.remove("online");
   } else {
-    offlineIndicator.textContent = `ONLINE — synced with ${count} peer${count === 1 ? "" : "s"}`;
-    offlineIndicator.style.background = "#2a5a2a";
-    offlineIndicator.style.color = "#a5f7a5";
+    offlineIndicator.textContent = `ONLINE · ${count} PEER${count === 1 ? "" : "S"}`;
+    offlineIndicator.classList.add("online");
   }
 }
 
@@ -175,7 +171,10 @@ updateOfflineIndicator();
 
 function renderPeerList() {
   peerListEl.innerHTML = Array.from(peerStatuses.entries())
-    .map(([id, status]) => `<div>${id.slice(0, 8)}: <b>${status}</b></div>`)
+    .map(([id, status]) => {
+      const color = status === "connected" ? "#00FF55" : status === "failed" || status === "closed" ? "#6B706C" : "#DFFF00";
+      return `<div class="peer-chip"><span class="peer-mark" style="background:${color}"></span>${id.slice(0, 6)}</div>`;
+    })
     .join("");
 }
 
@@ -242,7 +241,7 @@ document.getElementById("btn-complete")!.addEventListener("click", safeHandler(a
 };
 
 document.getElementById("btn-experiment-color")?.addEventListener("click", () => {
-  const colors = ["#ff0000", "#00ff00", "#0000ff", "#ffff00", "#ff00ff"];
+  const colors = ["#00C853", "#00FF55", "#7DFF00", "#DFFF00", "#FFFF00"];
   synced.updateShape("r1", { color: colors[Math.floor(Math.random() * colors.length)] });
   console.log("[experiment] set r1 color, shape now:", provider.getShape("r1"));
 });
@@ -255,7 +254,7 @@ document.getElementById("btn-experiment-move")?.addEventListener("click", () => 
 });
 
 document.getElementById("btn-force-collision-color")?.addEventListener("click", () => {
-  synced.updateShape("r1", { color: "#ff0000" });
+  synced.updateShape("r1", { color: "#DFFF00" });
   console.log("[force-collision] sent COLOR-only edit (partial patch)");
 });
 

@@ -62,6 +62,15 @@ export class CrdtProvider {
     return this.document.getAllShapes();
   }
 
+    exportSnapshot(): CrdtOp[] {
+    return this.document.exportSnapshot();
+  }
+
+  applyOp(op: CrdtOp): void {
+    this.document.applyOp(op);
+    this.notify(op.shapeId);
+  }
+
   private queueOp(op: CrdtOp): void {
     this.pendingOps.push(op);
     if (!this.batchFlushScheduled) {
