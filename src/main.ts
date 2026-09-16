@@ -62,6 +62,30 @@ window.addEventListener("mousemove", (event) => {
   presence.broadcastCursor(world.x, world.y);
 });
 
+const colorPicker = document.getElementById("color-picker") as HTMLInputElement;
+let currentColor = colorPicker.value;
+colorPicker.addEventListener("input", () => {
+  currentColor = colorPicker.value;
+});
+
+let tool: "select" | "pen" = "select";
+const penButton = document.getElementById("btn-tool-pen")!;
+penButton.addEventListener("click", () => {
+  tool = tool === "select" ? "pen" : "select";
+  penButton.classList.toggle("active", tool === "pen");
+});
+
+let drawingPathId: string | undefined;
+let drawingPoints: { x: number; y: number }[] = [];
+let pathFlushScheduled = false;
+
+function flushPathPoints() {
+  pathFlushScheduled = false;
+  if (drawingPathId) {
+    synced.updateShape(drawingPathId, { points: [...drawingPoints] } as any);
+  }
+}
+
 let draggingId: string | undefined;
 let dragOffsetX = 0;
 let dragOffsetY = 0;
@@ -72,6 +96,19 @@ let lastPanScreenY = 0;
 
 canvasEl.addEventListener("mousedown", (event) => {
   const world = viewport.screenToWorld(event.clientX, event.clientY);
+
+  if (tool === "pen") {
+    const id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+    drawingPathId = id;
+    drawingPoints = [{ x: world.x, y: world.y }];
+    synced.addShape({
+      id, type: "path", points: [...drawingPoints],
+      color: currentColor, strokeWidth: 3,
+      x: world.x, y: world.y, rotation: 0, zIndex: state.getAllShapes().length,
+    } as any);
+    return;
+  }
+
   const hit = hitTest(state.getAllShapes(), world.x, world.y);
   if (hit) {
     draggingId = hit.id;
@@ -86,9 +123,19 @@ canvasEl.addEventListener("mousedown", (event) => {
 });
 
 canvasEl.addEventListener("mousemove", (event) => {
+  const world = viewport.screenToWorld(event.clientX, event.clientY);
+
+  if (drawingPathId) {
+    drawingPoints.push({ x: world.x, y: world.y });
+    if (!pathFlushScheduled) {
+      pathFlushScheduled = true;
+      requestAnimationFrame(flushPathPoints);
+    }
+    return;
+  }
+
   if (draggingId) {
     dragMoved = true;
-    const world = viewport.screenToWorld(event.clientX, event.clientY);
     synced.updateShape(draggingId, { x: world.x - dragOffsetX, y: world.y - dragOffsetY });
   } else if (isPanning) {
     const dx = event.clientX - lastPanScreenX;
@@ -100,6 +147,11 @@ canvasEl.addEventListener("mousemove", (event) => {
 });
 
 window.addEventListener("mouseup", () => {
+  if (drawingPathId) {
+    flushPathPoints();
+    drawingPathId = undefined;
+    drawingPoints = [];
+  }
   draggingId = undefined;
   isPanning = false;
 });
@@ -111,6 +163,7 @@ canvasEl.addEventListener("wheel", (event) => {
 }, { passive: false });
 
 canvasEl.addEventListener("click", (event) => {
+  if (tool !== "select") return;
   if (dragMoved) {
     dragMoved = false;
     return;
@@ -121,21 +174,19 @@ canvasEl.addEventListener("click", (event) => {
   if (hit) return;
 
   const id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
-  const colors = ["#00C853", "#00FF55", "#7DFF00", "#DFFF00", "#FFFF00"];
-  const color = colors[Math.floor(Math.random() * colors.length)];
   const zIndex = state.getAllShapes().length;
 
   if (Math.random() < 0.5) {
     synced.addShape({
       id, type: "rect",
       x: world.x - 25, y: world.y - 25, width: 50, height: 50,
-      color, rotation: Math.random() * 45, zIndex,
+      color: currentColor, rotation: Math.random() * 45, zIndex,
     });
   } else {
     synced.addShape({
       id, type: "circle",
       x: world.x, y: world.y, radius: 25,
-      color, rotation: 0, zIndex,
+      color: currentColor, rotation: 0, zIndex,
     });
   }
 });

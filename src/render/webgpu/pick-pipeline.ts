@@ -1,4 +1,4 @@
-import type { Shape } from "../../canvas/types.js";
+import type { Shape, RectShape, CircleShape } from "../../canvas/types.js";
 import type { ViewportValue } from "../../canvas/viewport.js";
 
 const FLOATS_PER_VERTEX = 6; // worldX, worldY, idR, idG, idB, idA
@@ -79,8 +79,12 @@ export function createPickPipeline(device: GPUDevice): PickPipeline {
 }
 
 /** Encodes each shape's index as a unique flat RGBA color, alpha=1 so we can distinguish "hit nothing" (alpha=0, cleared) from "hit shape 0". Supports up to ~16M shapes via the 3 color channels. */
-function buildPickVertexData(shapesInDrawOrder: Shape[]): Float32Array {
-  const data = new Float32Array(shapesInDrawOrder.length * VERTICES_PER_SHAPE * FLOATS_PER_VERTEX);
+function buildPickVertexData(
+  shapesInDrawOrder: Array<RectShape | CircleShape>
+): Float32Array {
+  const data = new Float32Array(
+    shapesInDrawOrder.length * VERTICES_PER_SHAPE * FLOATS_PER_VERTEX
+  );
   let offset = 0;
 
   shapesInDrawOrder.forEach((shape, index) => {
@@ -93,19 +97,18 @@ function buildPickVertexData(shapesInDrawOrder: Shape[]): Float32Array {
     const sinR = Math.sin(rot);
 
     let cx: number, cy: number, hw: number, hh: number;
+
     if (shape.type === "rect") {
       cx = shape.x + shape.width / 2;
       cy = shape.y + shape.height / 2;
       hw = shape.width / 2;
       hh = shape.height / 2;
     } else {
+      // At this point shape can only be CircleShape.
       cx = shape.x;
       cy = shape.y;
       hw = shape.radius;
       hh = shape.radius;
-      // NOTE: circles are picked via their bounding quad, not the
-      // exact disc — corners of a circle's hit area are slightly
-      // more generous than the visual shape. Acceptable approximation.
     }
 
     const corners: Array<[number, number]> = [
@@ -148,7 +151,7 @@ export async function gpuHitTest(
   screenX: number,
   screenY: number
 ): Promise<Shape | undefined> {
-  const sorted = [...shapes].sort((a, b) => a.zIndex - b.zIndex);
+  const sorted = shapes.filter((s): s is RectShape | CircleShape => s.type !== "path").sort((a, b) => a.zIndex - b.zIndex);
   if (sorted.length === 0) return undefined;
 
   const texture = device.createTexture({

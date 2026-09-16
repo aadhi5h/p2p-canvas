@@ -1,5 +1,5 @@
-import type { Shape } from "../../canvas/types.js";
 import type { ViewportValue } from "../../canvas/viewport.js";
+import type { Shape, RectShape, CircleShape } from "../../canvas/types.js";
 
 const FLOATS_PER_VERTEX = 9;
 const VERTICES_PER_SHAPE = 6;
@@ -102,13 +102,12 @@ function hexToRgba(hex: string): [number, number, number, number] {
   return [r, g, b, 1];
 }
 
-/** Rough world-space bounding box for any shape — good enough for a cheap AABB cull, doesn't need to be exact for rotated shapes (slightly over-includes, never under-includes). */
-function boundingBox(shape: Shape): { minX: number; minY: number; maxX: number; maxY: number } {
+function boundingBox(
+  shape: RectShape | CircleShape
+): { minX: number; minY: number; maxX: number; maxY: number } {
   if (shape.type === "rect") {
     const cx = shape.x + shape.width / 2;
     const cy = shape.y + shape.height / 2;
-    // Use the diagonal as a radius so rotation can never push the
-    // shape outside this box — conservative but cheap, no trig needed.
     const r = Math.sqrt(shape.width * shape.width + shape.height * shape.height) / 2;
     return { minX: cx - r, minY: cy - r, maxX: cx + r, maxY: cy + r };
   } else {
@@ -116,21 +115,22 @@ function boundingBox(shape: Shape): { minX: number; minY: number; maxX: number; 
   }
 }
 
-/** Skips shapes whose bounding box doesn't intersect the visible world-space viewport rectangle at all. */
 export function cullShapes(shapes: Shape[], viewport: ViewportValue, canvasWidth: number, canvasHeight: number): Shape[] {
+  const renderable = shapes.filter((s): s is RectShape | CircleShape => s.type !== "path");
   const viewMinX = viewport.x;
   const viewMinY = viewport.y;
   const viewMaxX = viewport.x + canvasWidth / viewport.zoom;
   const viewMaxY = viewport.y + canvasHeight / viewport.zoom;
 
-  return shapes.filter((shape) => {
+  return renderable.filter((shape) => {
     const box = boundingBox(shape);
     return box.maxX >= viewMinX && box.minX <= viewMaxX && box.maxY >= viewMinY && box.minY <= viewMaxY;
   });
 }
 
 export function buildVertexData(shapes: Shape[]): Float32Array {
-  const sorted = [...shapes].sort((a, b) => a.zIndex - b.zIndex);
+  const renderable = shapes.filter((s): s is RectShape | CircleShape => s.type !== "path");
+  const sorted = [...renderable].sort((a, b) => a.zIndex - b.zIndex);
   const data = new Float32Array(sorted.length * VERTICES_PER_SHAPE * FLOATS_PER_VERTEX);
   let offset = 0;
 

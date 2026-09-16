@@ -61,10 +61,15 @@
     }
     button.btn:hover { background: rgba(0, 255, 85, 0.08); box-shadow: 0 0 10px rgba(0, 255, 85, 0.2); }
 
-    button.btn-quiet {
-      border-color: #6B706C; color: #6B706C;
-    }
+    button.btn-quiet { border-color: #6B706C; color: #6B706C; }
     button.btn-quiet:hover { background: rgba(221, 227, 222, 0.05); box-shadow: none; }
+
+    button.btn.active { background: #00C853; color: #020302; box-shadow: 0 0 12px rgba(0, 255, 85, 0.35); }
+
+    #color-picker {
+      width: 30px; height: 30px; padding: 0; border: 1px solid #6B706C;
+      background: transparent; cursor: pointer;
+    }
 
     #invite-modal, #devtools-panel {
       position: fixed; z-index: 30;
@@ -76,9 +81,7 @@
     #invite-modal { top: 66px; right: 18px; width: 340px; border-color: #00C853; }
     #invite-modal.open { display: block; }
 
-    #invite-modal h2 {
-      font-size: 13px; color: #DDE3DE; margin: 0 0 12px; font-weight: 600;
-    }
+    #invite-modal h2 { font-size: 13px; color: #DDE3DE; margin: 0 0 12px; font-weight: 600; }
     #invite-modal .step {
       font-family: 'JetBrains Mono', monospace;
       font-size: 10px; color: #6B706C; margin: 12px 0 5px; letter-spacing: 0.2px;
@@ -111,9 +114,7 @@
     }
     #devtools-panel button:hover { border-color: #DFFF00; color: #DFFF00; }
 
-    #devtools-toggle {
-      position: fixed; bottom: 18px; left: 18px; z-index: 25;
-    }
+    #devtools-toggle { position: fixed; bottom: 18px; left: 18px; z-index: 25; }
   </style>
 </head>
 <body>
@@ -122,6 +123,8 @@
     <span id="offline-indicator"></span>
     <div id="peer-list"></div>
     <div id="spacer"></div>
+    <input type="color" id="color-picker" value="#00FF55" />
+    <button class="btn" id="btn-tool-pen">Pen</button>
     <button class="btn" id="btn-invite-toggle">Invite</button>
   </div>
 

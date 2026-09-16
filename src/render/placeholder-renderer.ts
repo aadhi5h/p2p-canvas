@@ -14,6 +14,22 @@ export function startPlaceholderRenderer(canvasEl: HTMLCanvasElement, state: Can
 
   function drawShape(shape: Shape): void {
     ctx.save();
+
+    if (shape.type === "path") {
+      if (shape.points.length >= 2) {
+        ctx.strokeStyle = shape.color;
+        ctx.lineWidth = shape.strokeWidth;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.beginPath();
+        ctx.moveTo(shape.points[0].x, shape.points[0].y);
+        for (let i = 1; i < shape.points.length; i++) ctx.lineTo(shape.points[i].x, shape.points[i].y);
+        ctx.stroke();
+      }
+      ctx.restore();
+      return;
+    }
+
     ctx.fillStyle = shape.color;
     if (shape.type === "rect") {
       const cx = shape.x + shape.width / 2;
@@ -21,7 +37,7 @@ export function startPlaceholderRenderer(canvasEl: HTMLCanvasElement, state: Can
       ctx.translate(cx, cy);
       ctx.rotate((shape.rotation * Math.PI) / 180);
       ctx.fillRect(-shape.width / 2, -shape.height / 2, shape.width, shape.height);
-    } else if (shape.type === "circle") {
+    } else {
       ctx.translate(shape.x, shape.y);
       ctx.rotate((shape.rotation * Math.PI) / 180);
       ctx.beginPath();
