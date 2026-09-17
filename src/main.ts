@@ -68,16 +68,23 @@ colorPicker.addEventListener("input", () => {
   currentColor = colorPicker.value;
 });
 
-let tool: "select" | "pen" = "select";
+let tool: "select" | "pen" | "eraser" = "select";
 const penButton = document.getElementById("btn-tool-pen")!;
-penButton.addEventListener("click", () => {
-  tool = tool === "select" ? "pen" : "select";
+const eraserButton = document.getElementById("btn-tool-eraser")!;
+
+function setTool(next: "select" | "pen" | "eraser") {
+  tool = tool === next ? "select" : next;
   penButton.classList.toggle("active", tool === "pen");
-});
+  eraserButton.classList.toggle("active", tool === "eraser");
+}
+
+penButton.addEventListener("click", () => setTool("pen"));
+eraserButton.addEventListener("click", () => setTool("eraser"));
 
 let drawingPathId: string | undefined;
 let drawingPoints: { x: number; y: number }[] = [];
 let pathFlushScheduled = false;
+let isErasing = false;
 
 function flushPathPoints() {
   pathFlushScheduled = false;
@@ -96,6 +103,13 @@ let lastPanScreenY = 0;
 
 canvasEl.addEventListener("mousedown", (event) => {
   const world = viewport.screenToWorld(event.clientX, event.clientY);
+
+  if (tool === "eraser") {
+    isErasing = true;
+    const hit = hitTest(state.getAllShapes(), world.x, world.y);
+    if (hit) synced.removeShape(hit.id);
+    return;
+  }
 
   if (tool === "pen") {
     const id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
@@ -125,6 +139,12 @@ canvasEl.addEventListener("mousedown", (event) => {
 canvasEl.addEventListener("mousemove", (event) => {
   const world = viewport.screenToWorld(event.clientX, event.clientY);
 
+  if (isErasing) {
+    const hit = hitTest(state.getAllShapes(), world.x, world.y);
+    if (hit) synced.removeShape(hit.id);
+    return;
+  }
+
   if (drawingPathId) {
     drawingPoints.push({ x: world.x, y: world.y });
     if (!pathFlushScheduled) {
@@ -147,6 +167,7 @@ canvasEl.addEventListener("mousemove", (event) => {
 });
 
 window.addEventListener("mouseup", () => {
+  isErasing = false;
   if (drawingPathId) {
     flushPathPoints();
     drawingPathId = undefined;
