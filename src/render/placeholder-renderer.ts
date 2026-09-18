@@ -48,7 +48,8 @@ export function startPlaceholderRenderer(canvasEl: HTMLCanvasElement, state: Can
   }
 
   function draw(): void {
-    ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvasEl.width, canvasEl.height);
     ctx.save();
     const v = viewport.get();
     ctx.scale(v.zoom, v.zoom);

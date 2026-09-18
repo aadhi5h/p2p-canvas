@@ -52,9 +52,6 @@ import("./render/webgpu/device.js").then(async ({ initWebGPU }) => {
   };
 });
 
-synced.addShape({ id: "r1", type: "rect", x: 100, y: 100, width: 120, height: 80, color: "#4f8ef7", rotation: 0, zIndex: 0 });
-synced.addShape({ id: "r2", type: "rect", x: 260, y: 180, width: 80, height: 80, color: "#f77c4f", rotation: 0, zIndex: 0 });
-
 viewport.onChange(() => presence.broadcastViewport(viewport.get()));
 
 window.addEventListener("mousemove", (event) => {
