@@ -5,13 +5,6 @@ import type { Viewport } from "../canvas/viewport.js";
 export function startPlaceholderRenderer(canvasEl: HTMLCanvasElement, state: CanvasState, viewport: Viewport) {
   const ctx = canvasEl.getContext("2d")!;
 
-  function resize() {
-    canvasEl.width = window.innerWidth;
-    canvasEl.height = window.innerHeight;
-  }
-  window.addEventListener("resize", resize);
-  resize();
-
   function drawShape(shape: Shape): void {
     ctx.save();
 
@@ -59,7 +52,14 @@ export function startPlaceholderRenderer(canvasEl: HTMLCanvasElement, state: Can
     ctx.restore();
   }
 
+  function resize() {
+    canvasEl.width = window.innerWidth;
+    canvasEl.height = window.innerHeight;
+    draw();
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
   state.onChange(draw);
   viewport.onChange(draw);
-  draw();
 }

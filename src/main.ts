@@ -77,6 +77,18 @@ function setTool(next: "select" | "pen" | "eraser") {
 
 penButton.addEventListener("click", () => setTool("pen"));
 eraserButton.addEventListener("click", () => setTool("eraser"));
+document.getElementById("btn-fill")!.addEventListener("click", () => {
+  const v = viewport.get();
+  const topLeft = viewport.screenToWorld(0, 0);
+  const bottomRight = viewport.screenToWorld(window.innerWidth, window.innerHeight);
+  const id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+  synced.addShape({
+    id, type: "rect",
+    x: topLeft.x, y: topLeft.y,
+    width: bottomRight.x - topLeft.x, height: bottomRight.y - topLeft.y,
+    color: currentColor, rotation: 0, zIndex: -1,
+  });
+});
 
 let drawingPathId: string | undefined;
 let drawingPoints: { x: number; y: number }[] = [];
